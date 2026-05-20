@@ -6,7 +6,7 @@
 
 
 
-static const uint32_t DWELL_MS = 800;
+static const uint32_t DWELL_MS = 5000;
 
 struct ChannelStats { int packets; float lastRSSI; uint32_t lastSeenMs; };
 static ChannelStats stats[MESH_CHANNEL_COUNT];
@@ -93,7 +93,7 @@ static void drawTable() {
 
 void monitor_enter() {
     memset(stats, 0, sizeof(stats));
-    curChan = 0; dwellStart = 0;
+    curChan = 0; dwellStart = millis();
     lora_apply_channel(0);
     lora_start_listen();
     drawTable();
