@@ -8,6 +8,7 @@ static const char* LABELS[] = {
     "",
     "Status",
     "Spectrum",
+    "Noise",
     "Scanner",
     "Monitor",
     "Decoder",
@@ -23,6 +24,9 @@ void menu_update() {
     if (button_short_pressed()) {
         selected++;
         if (selected >= MODE_COUNT) selected = 1;
+    } else if (button_double_pressed()) {
+        selected--;
+        if (selected <= 0) selected = MODE_COUNT - 1;
     }
 }
 
@@ -36,10 +40,21 @@ void menu_draw() {
     display_draw_hline(0, 20, 240, DISPLAY_GRAY);
 #endif
 
-    int itemsPerCol = (MODE_COUNT - 1 + 1) / 2;
-    for (int i = 1; i < MODE_COUNT; i++) {
-        int col = (i - 1) / itemsPerCol;
-        int row = (i - 1) % itemsPerCol;
+#if HAS_OLED
+    const int MAX_ROWS = 4;
+#else
+    const int MAX_ROWS = 5;
+#endif
+    const int ITEMS_PER_PAGE = MAX_ROWS * 2;
+    int page = (selected - 1) / ITEMS_PER_PAGE;
+    int startIndex = page * ITEMS_PER_PAGE + 1;
+    int endIndex = startIndex + ITEMS_PER_PAGE - 1;
+    if (endIndex >= MODE_COUNT) endIndex = MODE_COUNT - 1;
+
+    for (int i = startIndex; i <= endIndex; i++) {
+        int displayIdx = i - startIndex;
+        int col = displayIdx / MAX_ROWS;
+        int row = displayIdx % MAX_ROWS;
 #if HAS_OLED
         int x = col * 64 + 2;
         int y = 14 + row * 9;
@@ -65,10 +80,9 @@ void menu_draw() {
     }
     
 #if HAS_OLED
-    // Max 21 chars (128px / 6px). "S:next  L:enter" = 15 chars = 90px
-    display_draw_text_small_abs(0, 56, DISPLAY_CYAN, "S:next   L:enter");
+    display_draw_text_small_abs(0, 56, DISPLAY_CYAN, "S:nx  D:pv  L:sel");
 #else
-    display_draw_text_small_abs(4, 126, DISPLAY_CYAN, "Short:next Long:select");
+    display_draw_text_small_abs(4, 126, DISPLAY_CYAN, "S:nxt  D:prv  L:sel");
 #endif
     
     display_update_buffer();

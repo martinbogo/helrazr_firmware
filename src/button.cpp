@@ -7,8 +7,11 @@ static bool     lastRaw      = HIGH;
 static bool     debounced    = HIGH;
 static uint32_t pressStart   = 0;
 static uint32_t lastChangeMs = 0;
+static uint32_t lastReleaseMs = 0;
+static int      clickCount   = 0;
 
 static bool eventShort    = false;
+static bool eventDouble   = false;
 static bool eventLong     = false;
 static bool eventPowerOff = false;
 
@@ -21,6 +24,7 @@ void button_init() {
 
 void button_update() {
     eventShort    = false;
+    eventDouble   = false;
     eventLong     = false;
     eventPowerOff = false;
 
@@ -43,11 +47,21 @@ void button_update() {
         powerFired  = false;
 
     } else if (prev == LOW && debounced == HIGH) {
-        // Release -- fire short press if not already handled by a hold event
+        // Release -- handle double-click timing
         if (!longFired && !powerFired) {
-            eventShort = true;
+            if (now - lastReleaseMs < 300) {
+                // Second click in window
+                eventDouble = true;
+                clickCount = 0;
+                lastReleaseMs = 0;
+            } else {
+                // First click
+                clickCount = 1;
+                lastReleaseMs = now;
+            }
+        } else {
+            clickCount = 0;
         }
-        // longFired / powerFired reset on next press start
 
     } else if (debounced == LOW) {
         // Still held -- fire timed events
@@ -56,15 +70,23 @@ void button_update() {
         if (!longFired && held >= BTN_LONG_MS) {
             eventLong  = true;
             longFired  = true;
+            clickCount = 0;
         }
         if (!powerFired && held >= BTN_POWEROFF_MS) {
             eventPowerOff = true;
             powerFired    = true;
         }
+    } else if (debounced == HIGH) {
+        // Idle pending click resolution
+        if (clickCount == 1 && (now - lastReleaseMs) >= 300) {
+            eventShort = true;
+            clickCount = 0;
+        }
     }
 }
 
 bool     button_short_pressed()    { return eventShort; }
+bool     button_double_pressed()   { return eventDouble; }
 bool     button_long_pressed()     { return eventLong; }
 bool     button_poweroff_pressed() { return eventPowerOff; }
 uint32_t button_held_ms() {

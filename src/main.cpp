@@ -14,6 +14,7 @@
 #include "monitor.h"
 #include "decoder.h"
 #include "nodetracker.h"
+#include "noise.h"
 #include "stats.h"
 #include "autotrack.h"
 
@@ -36,12 +37,14 @@ const char* mode_name(AppMode m) {
     switch (m) {
         case MODE_STATUS:   return "Status";
         case MODE_SPECTRUM: return "Spectrum";
+        case MODE_NOISE:    return "Noise Floor";
         case MODE_SCANNER:  return "Scanner";
         case MODE_MONITOR:  return "Monitor";
         case MODE_DECODER:  return "Decoder";
         case MODE_NODES:    return "Nodes";
         case MODE_STATS:    return "Stats";
         case MODE_AUTOTRACK:return "AutoTrack";
+        case MODE_STANDBY:  return "Standby";
         default:            return "Menu";
     }
 }
@@ -52,6 +55,7 @@ static void enter_mode(AppMode m) {
         case MODE_MENU:      menu_init(); menu_draw(); break;
         case MODE_STATUS:    lora_start_listen(); break;
         case MODE_SPECTRUM:  lora_stop_listen(); spectrum_enter(); break;
+        case MODE_NOISE:     lora_stop_listen(); noise_enter(); break;
         case MODE_SCANNER:   lora_stop_listen(); scanner_enter();  break;
         case MODE_MONITOR:   monitor_enter();  break;
         case MODE_DECODER:   decoder_enter();  break;
@@ -170,6 +174,11 @@ void loop() {
         return;
     }
 
+    if (currentMode == MODE_NOISE && button_short_pressed()) {
+        noise_short_press();
+        return;
+    }
+
     switch (currentMode) {
         case MODE_STATUS: {
             if (now - lastStatusUpdate >= 1000) {
@@ -185,6 +194,7 @@ void loop() {
             break;
         }
         case MODE_SPECTRUM:  spectrum_update();           break;
+        case MODE_NOISE:     noise_update();              break;
         case MODE_SCANNER:   scanner_update();            break;
         case MODE_MONITOR:   monitor_update();            break;
         case MODE_DECODER:   decoder_update();            break;
