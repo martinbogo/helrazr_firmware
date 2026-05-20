@@ -10,6 +10,7 @@
 #include "neopixel.h"
 #include "power.h"
 #include "spectrum.h"
+#include "waterfall.h"
 #include "scanner.h"
 #include "monitor.h"
 #include "decoder.h"
@@ -37,6 +38,7 @@ const char* mode_name(AppMode m) {
     switch (m) {
         case MODE_STATUS:   return "Status";
         case MODE_SPECTRUM: return "Spectrum";
+        case MODE_WATERFALL:return "Waterfall";
         case MODE_NOISE:    return "Noise Floor";
         case MODE_SCANNER:  return "Scanner";
         case MODE_MONITOR:  return "Monitor";
@@ -55,6 +57,7 @@ static void enter_mode(AppMode m) {
         case MODE_MENU:      menu_init(); menu_draw(); break;
         case MODE_STATUS:    lora_start_listen(); break;
         case MODE_SPECTRUM:  lora_stop_listen(); spectrum_enter(); break;
+        case MODE_WATERFALL: lora_stop_listen(); waterfall_enter(); break;
         case MODE_NOISE:     lora_stop_listen(); noise_enter(); break;
         case MODE_SCANNER:   lora_stop_listen(); scanner_enter();  break;
         case MODE_MONITOR:   monitor_enter();  break;
@@ -174,6 +177,11 @@ void loop() {
         return;
     }
 
+    if (currentMode == MODE_WATERFALL && button_short_pressed()) {
+        waterfall_short_press();
+        return;
+    }
+
     if (currentMode == MODE_NOISE && button_short_pressed()) {
         noise_short_press();
         return;
@@ -194,6 +202,7 @@ void loop() {
             break;
         }
         case MODE_SPECTRUM:  spectrum_update();           break;
+        case MODE_WATERFALL: waterfall_update();          break;
         case MODE_NOISE:     noise_update();              break;
         case MODE_SCANNER:   scanner_update();            break;
         case MODE_MONITOR:   monitor_update();            break;

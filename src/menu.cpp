@@ -8,6 +8,7 @@ static const char* LABELS[] = {
     "",
     "Status",
     "Spectrum",
+    "Waterfall",
     "Noise",
     "Scanner",
     "Monitor",

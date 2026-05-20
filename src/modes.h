@@ -5,6 +5,7 @@ enum AppMode {
     MODE_MENU = 0,
     MODE_STATUS,
     MODE_SPECTRUM,
+    MODE_WATERFALL,
     MODE_NOISE,
     MODE_SCANNER,
     MODE_MONITOR,
