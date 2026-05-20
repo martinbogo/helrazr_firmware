@@ -63,7 +63,7 @@ The single button navigates between modes.
 
 | Press | In Menu | In a Mode |
 |-------|---------|-----------|
-| Short (<600 ms) | Advance to next mode | No action |
+| Short (<600 ms) | Advance to next mode | Varies by mode (e.g., toggle Peak Hold in Spectrum) |
 | Long (≥600 ms) | Enter highlighted mode | Return to menu |
 
 ### Firmware Functions / Modes
@@ -71,7 +71,7 @@ The single button navigates between modes.
 | Mode | Description |
 |------|-------------|
 | **Status** | Shows a live dashboard with GPS position, LoRa RX stats, battery voltage, and firmware uptime. |
-| **Spectrum** | Sweeps 902.0–928.0 MHz (53 points) and draws a real-time RSSI bar graph mapping signal strength. Prints peak frequency info. |
+| **Spectrum** | Sweeps 902.0–928.0 MHz (53 points) and draws a real-time RSSI bar graph mapping signal strength. Prints peak frequency info. <br>**Short Press:** Toggles *Peak Hold* mode (displays an `[H]` indicator and draws a continuous line holding the historically highest signal levels). |
 | **Scanner** | Sweeps the band and lists the top most active frequencies with RSSI above a threshold. Useful for finding active channels. |
 | **Monitor** | Cycles through standard Meshtastic US915 channel presets (LongFast, LongSlow, etc.), dwelling on each to count packets and display a live activity table. |
 | **Decoder** | Locks onto the Meshtastic LongFast channel to decode headers and parse text messages from unencrypted packets directly on the screen. |
