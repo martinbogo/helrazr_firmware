@@ -70,9 +70,12 @@ void spectrum_enter() {
 }
 
 void spectrum_update() {
-    float peakRSSI = -200, peakFreq = FREQ_START;
-
-    for (int i = 0; i < NUM_STEPS; i++) {
+    static int i = 0;
+    static float peakRSSI = -200, peakFreq = FREQ_START;
+    
+    // Process up to 4 frequency steps per loop to maintain high loop speed
+    // This allows the button debounce logic to catch quick presses.
+    for (int step = 0; step < 4; step++) {
         float freq = FREQ_START + i * FREQ_STEP;
         float rssi = lora_scan_rssi(freq);
         rssiBuffer[i] = rssi;
@@ -112,25 +115,27 @@ void spectrum_update() {
                 }
             }
         }
+
+        i++;
+        if (i >= NUM_STEPS) {
+            i = 0;
+            // End of sweep: update peak annotation
+            char peak[36];
+#if HAS_OLED
+            // y = 12+38+4 = 54
+            snprintf(peak, sizeof(peak), "%sPk:%.1fMHz %ddBm", peakHoldActive ? "[H] " : "", peakFreq, (int)peakRSSI);
+            display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 2, GRAPH_W, 10, DISPLAY_BLACK);
+            display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 4, DISPLAY_WHITE, peak);
+#else
+            snprintf(peak, sizeof(peak), "%sPeak:%.1fMHz %ddBm  ", peakHoldActive ? "[H] " : "", peakFreq, (int)peakRSSI);
+            display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 15, GRAPH_W, 12, DISPLAY_BLACK);
+            display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 17, DISPLAY_WHITE, peak);
+#endif
+            peakRSSI = -200; 
+            peakFreq = FREQ_START;
+            break;
+        }
     }
 
-    // Peak annotation (small font to fit in bottom strip)
-    char peak[36];
-#if HAS_OLED
-    // y = 12+38+4 = 54, safely within 0..63; overwrites static axis labels which is fine
-    snprintf(peak, sizeof(peak), "%sPk:%.1fMHz %ddBm", peakHoldActive ? "[H] " : "", peakFreq, (int)peakRSSI);
-    display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 2, GRAPH_W, 10, DISPLAY_BLACK);
-    display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 4, DISPLAY_WHITE, peak);
-#else
-    snprintf(peak, sizeof(peak), "%sPeak:%.1fMHz %ddBm  ", peakHoldActive ? "[H] " : "", peakFreq, (int)peakRSSI);
-    display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 15, GRAPH_W, 12, DISPLAY_BLACK);
-    display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 17, DISPLAY_WHITE, peak);
-#endif
     display_update_buffer();
-
-    Serial.print("Spectrum peak: ");
-    Serial.print(peakFreq, 1);
-    Serial.print(" MHz  ");
-    Serial.print((int)peakRSSI);
-    Serial.println(" dBm");
 }
