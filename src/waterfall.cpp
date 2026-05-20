@@ -26,12 +26,22 @@ static uint8_t history[GRAPH_H][NUM_STEPS];
 static int nextRow = 0;
 static bool isPaused = false;
 
-static uint16_t rssiToWaterfallColor(int rssi) {
-    if (rssi < -120) return DISPLAY_BLACK;
-    if (rssi < -100) return DISPLAY_GRAY;
-    if (rssi < -85)  return DISPLAY_GREEN;
-    if (rssi < -70)  return DISPLAY_YELLOW;
-    return DISPLAY_RED;
+static uint16_t rssiToWaterfallColor(int rssi, int i, int r) {
+#if HAS_OLED
+    if (rssi < -115) return DISPLAY_BLACK;
+    if (rssi < -105) return ((i + r) % 2 == 0) ? DISPLAY_WHITE : DISPLAY_BLACK; // Sparse
+    if (rssi < -95)  return ((i % 2 == 0) || (r % 2 == 0)) ? DISPLAY_WHITE : DISPLAY_BLACK; // Denser
+    return DISPLAY_WHITE; // Solid white
+#else
+    if (rssi < -120) return 0x0000; // Black
+    if (rssi < -110) return 0x0017; // Dark Blue
+    if (rssi < -100) return 0x001F; // Blue
+    if (rssi < -90)  return 0x07FF; // Cyan
+    if (rssi < -80)  return 0x07E0; // Green
+    if (rssi < -70)  return 0xFFE0; // Yellow
+    if (rssi < -60)  return 0xFD20; // Orange
+    return 0xF800; // Red
+#endif
 }
 
 void waterfall_short_press() {
@@ -94,7 +104,7 @@ void waterfall_update() {
             if (bw < 1) bw = 1;
             
             int rssi = history[histRow][i] - 135;
-            uint16_t color = rssiToWaterfallColor(rssi);
+            uint16_t color = rssiToWaterfallColor(rssi, i, r);
             
             display_fill_rect_abs(x0, y, bw, 1, color);
         }
