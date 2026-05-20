@@ -19,7 +19,7 @@ static const int GRAPH_H  = 38;
 static const int GRAPH_X  = 0;
 static const int GRAPH_Y  = 20;   // below title
 static const int GRAPH_W  = 240;
-static const int GRAPH_H  = 95;   // leaves 20px at bottom for labels
+static const int GRAPH_H  = 85;   // leaves ample room at bottom for 2 lines of labels
 #endif
 static const int RSSI_MIN = -135;
 static const int RSSI_MAX = -40;
@@ -60,11 +60,11 @@ void spectrum_enter() {
 #else
     display_draw_text_abs(30, 15, DISPLAY_CYAN, "Spectrum 902-928 MHz");
     // x-axis labels using small font
-    display_draw_text_small_abs(0,   GRAPH_Y + GRAPH_H + 9, DISPLAY_CYAN, "902");
-    display_draw_text_small_abs(54,  GRAPH_Y + GRAPH_H + 9, DISPLAY_CYAN, "909");
-    display_draw_text_small_abs(113, GRAPH_Y + GRAPH_H + 9, DISPLAY_CYAN, "916");
-    display_draw_text_small_abs(172, GRAPH_Y + GRAPH_H + 9, DISPLAY_CYAN, "923");
-    display_draw_text_small_abs(213, GRAPH_Y + GRAPH_H + 9, DISPLAY_CYAN, "928");
+    display_draw_text_small_abs(0,   GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "902");
+    display_draw_text_small_abs(54,  GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "909");
+    display_draw_text_small_abs(113, GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "916");
+    display_draw_text_small_abs(172, GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "923");
+    display_draw_text_small_abs(213, GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "928");
 #endif
     display_update_buffer();
 }
@@ -94,7 +94,22 @@ void spectrum_update() {
             }
             int ph = rssiToHeight(peakHoldBuffer[i]);
             if (ph > 0) {
-                display_draw_hline(x0, GRAPH_Y + GRAPH_H - ph, bw, DISPLAY_CYAN);
+                int cx = x0 + bw / 2;
+                int cy = GRAPH_Y + GRAPH_H - ph;
+                if (i > 0) {
+                    int prev_ph = rssiToHeight(peakHoldBuffer[i - 1]);
+                    if (prev_ph > 0) {
+                        int prev_x0 = GRAPH_X + ((i - 1) * GRAPH_W) / NUM_STEPS;
+                        int prev_x1 = GRAPH_X + (i * GRAPH_W) / NUM_STEPS;
+                        int prev_cx = prev_x0 + (prev_x1 - prev_x0) / 2;
+                        int prev_cy = GRAPH_Y + GRAPH_H - prev_ph;
+                        display_draw_line(prev_cx, prev_cy, cx, cy, DISPLAY_CYAN);
+                    } else {
+                        display_draw_hline(x0, cy, bw, DISPLAY_CYAN);
+                    }
+                } else {
+                    display_draw_hline(x0, cy, bw, DISPLAY_CYAN);
+                }
             }
         }
     }
@@ -108,8 +123,8 @@ void spectrum_update() {
     display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 4, DISPLAY_WHITE, peak);
 #else
     snprintf(peak, sizeof(peak), "%sPeak:%.1fMHz %ddBm  ", peakHoldActive ? "[H] " : "", peakFreq, (int)peakRSSI);
-    display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 18, GRAPH_W, 10, DISPLAY_BLACK);
-    display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 18, DISPLAY_WHITE, peak);
+    display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 15, GRAPH_W, 12, DISPLAY_BLACK);
+    display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 17, DISPLAY_WHITE, peak);
 #endif
     display_update_buffer();
 

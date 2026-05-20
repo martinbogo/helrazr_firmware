@@ -45,6 +45,7 @@ void display_update_buffer(); // for OLED page updates
 void display_draw_text(int x, int y, uint16_t color, const char* text);
 void display_fill_rect(int x, int y, int w, int h, uint16_t color);
 void display_draw_hline(int x, int y, int w, uint16_t color);
+void display_draw_line(int x0, int y0, int x1, int y1, uint16_t color);
 
 void display_draw_text_abs(int x, int y, uint16_t color, const char* text);
 void display_draw_text_small_abs(int x, int y, uint16_t color, const char* text);

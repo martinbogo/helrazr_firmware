@@ -238,6 +238,10 @@ void display_draw_hline(int x, int y, int w, uint16_t color) {
     tft.drawFastHLine(x, y, w, color);
 }
 
+void display_draw_line(int x0, int y0, int x1, int y1, uint16_t color) {
+    tft.drawLine(x0, y0, x1, y1, color);
+}
+
 void display_draw_text_abs(int x, int y, uint16_t color, const char* text) {
 #if HAS_TFT
     tft.setFont(&FreeSans9pt7b);
