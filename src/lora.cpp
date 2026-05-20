@@ -43,8 +43,8 @@ void lora_init() {
 #endif
 
     int state = radio.begin(curFreq, curBW, curSF, curCR,
-                            RADIOLIB_SX126X_SYNC_WORD_PRIVATE,
-                            10, 8, 1.8f, false);
+                            0x2B,
+                            10, 16, 1.8f, false);
     if (state != RADIOLIB_ERR_NONE) {
         Serial.print("LoRa init failed: "); Serial.println(state);
         return;
