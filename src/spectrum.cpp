@@ -25,6 +25,8 @@ static const int RSSI_MIN = -135;
 static const int RSSI_MAX = -40;
 
 static float rssiBuffer[53];
+static bool  peakHoldActive = false;
+static float peakHoldBuffer[53];
 
 static int rssiToHeight(float rssi) {
     if (rssi < RSSI_MIN) rssi = RSSI_MIN;
@@ -38,7 +40,17 @@ static uint16_t rssiToColor(float rssi) {
     return DISPLAY_GREEN;
 }
 
+void spectrum_short_press() {
+    peakHoldActive = !peakHoldActive;
+    if (peakHoldActive) {
+        for (int i = 0; i < NUM_STEPS; i++) {
+            peakHoldBuffer[i] = -200.0f;
+        }
+    }
+}
+
 void spectrum_enter() {
+    peakHoldActive = false;
     display_clear();
 #if HAS_OLED
     display_draw_text_abs(5, 0, DISPLAY_CYAN, "Spectrum 902-928 MHz");
@@ -75,17 +87,28 @@ void spectrum_update() {
         int h = rssiToHeight(rssi);
         display_fill_rect_abs(x0, GRAPH_Y,                bw, GRAPH_H - h, DISPLAY_BLACK);
         if (h > 0) display_fill_rect_abs(x0, GRAPH_Y + GRAPH_H - h, bw, h, rssiToColor(rssi));
+
+        if (peakHoldActive) {
+            if (rssi > peakHoldBuffer[i]) {
+                peakHoldBuffer[i] = rssi;
+            }
+            int ph = rssiToHeight(peakHoldBuffer[i]);
+            if (ph > 0) {
+                display_draw_hline(x0, GRAPH_Y + GRAPH_H - ph, bw, DISPLAY_CYAN);
+            }
+        }
     }
 
     // Peak annotation (small font to fit in bottom strip)
     char peak[36];
 #if HAS_OLED
     // y = 12+38+4 = 54, safely within 0..63; overwrites static axis labels which is fine
-    snprintf(peak, sizeof(peak), "Pk:%.1fMHz %ddBm  ", peakFreq, (int)peakRSSI);
+    snprintf(peak, sizeof(peak), "%sPk:%.1fMHz %ddBm", peakHoldActive ? "[H] " : "", peakFreq, (int)peakRSSI);
     display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 2, GRAPH_W, 10, DISPLAY_BLACK);
     display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 4, DISPLAY_WHITE, peak);
 #else
-    snprintf(peak, sizeof(peak), "Peak:%.1fMHz %ddBm  ", peakFreq, (int)peakRSSI);
+    snprintf(peak, sizeof(peak), "%sPeak:%.1fMHz %ddBm  ", peakHoldActive ? "[H] " : "", peakFreq, (int)peakRSSI);
+    display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 18, GRAPH_W, 10, DISPLAY_BLACK);
     display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 18, DISPLAY_WHITE, peak);
 #endif
     display_update_buffer();

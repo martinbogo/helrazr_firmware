@@ -165,6 +165,11 @@ void loop() {
         return;
     }
 
+    if (currentMode == MODE_SPECTRUM && button_short_pressed()) {
+        spectrum_short_press();
+        return;
+    }
+
     switch (currentMode) {
         case MODE_STATUS: {
             if (now - lastStatusUpdate >= 1000) {
