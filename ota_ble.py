@@ -144,26 +144,39 @@ async def upload_nordic_dfu(client, zip_path):
 # =======================================================================
 async def main(file_path):
     print("Scanning for Heltec BLE OTA devices (Helrazr-OTA or DfuTarg)...")
-    devices = await BleakScanner.discover(timeout=5.0)
     
-    target_device = None
-    target_type = None
-    
-    for d in devices:
-        if d.name and "Helrazr-OTA" in d.name:
-            target_device = d
-            target_type = 'esp32'
-            break
-        elif d.name and "DfuTarg" in d.name:
-            target_device = d
-            target_type = 'nordic'
-            break
+    def match_device(device, adv_data):
+        # 1) Check exact names
+        name = device.name or adv_data.local_name or ""
+        if "Helrazr-OTA" in name or "DfuTarg" in name:
+            return True
+        # 2) Check UUIDs for ESP32 target
+        if SERVICE_UUID in adv_data.service_uuids:
+            return True
+        if SERVICE_UUID.upper() in adv_data.service_uuids:
+            return True
+        # 3) Check UUIDs for Nordic target
+        if NORDIC_DFU_SERVICE in adv_data.service_uuids:
+            return True
+        if NORDIC_DFU_SERVICE.upper() in adv_data.service_uuids:
+            return True
+        return False
+        
+    target_device = await BleakScanner.find_device_by_filter(match_device, timeout=5.0)
 
     if not target_device:
         print("Error: No compatible devices found in OTA mode.")
         sys.exit(1)
+
+    target_type = 'esp32'
+    name = target_device.name or ""
+    if "DfuTarg" in name:
+        target_type = 'nordic'
+    # Fallback to identify by metadata
+    elif NORDIC_DFU_SERVICE in target_device.metadata.get('uuids', []):
+        target_type = 'nordic'
         
-    print(f"Found {target_type.upper()} endpoint: {target_device.name} ({target_device.address})")
+    print(f"Found {target_type.upper()} endpoint: {name} ({target_device.address})")
     
     try:
         async with BleakClient(target_device) as client:
