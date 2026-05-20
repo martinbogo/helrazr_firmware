@@ -17,6 +17,7 @@ static const char* LABELS[] = {
     "Stats",
     "AutoTrack",
     "Standby",
+    "OTA Update",
 };
 
 void menu_init() { selected = 1; }

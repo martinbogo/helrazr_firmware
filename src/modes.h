@@ -14,6 +14,7 @@ enum AppMode {
     MODE_STATS,
     MODE_AUTOTRACK,
     MODE_STANDBY,
+    MODE_OTA,
     MODE_COUNT
 };
 

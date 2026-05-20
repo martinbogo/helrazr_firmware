@@ -18,6 +18,7 @@
 #include "noise.h"
 #include "stats.h"
 #include "autotrack.h"
+#include "ble_ota.h"
 
 AppMode currentMode = MODE_MENU;
 
@@ -46,6 +47,7 @@ const char* mode_name(AppMode m) {
         case MODE_NODES:    return "Nodes";
         case MODE_STATS:    return "Stats";
         case MODE_AUTOTRACK:return "AutoTrack";
+        case MODE_OTA:      return "OTA Update";
         case MODE_STANDBY:  return "Standby";
         default:            return "Menu";
     }
@@ -65,6 +67,7 @@ static void enter_mode(AppMode m) {
         case MODE_NODES:     nodetracker_enter(); break;
         case MODE_STATS:     stats_enter(); lora_start_listen(); break;
         case MODE_AUTOTRACK: autotrack_enter(); break;
+        case MODE_OTA:       lora_stop_listen(); ble_ota_enter(); break;
         case MODE_STANDBY: {
             // Show shutdown screen briefly before entering deep sleep
             display_clear();
@@ -210,6 +213,7 @@ void loop() {
         case MODE_NODES:     nodetracker_mode_update();   break;
         case MODE_STATS:     stats_update();              break;
         case MODE_AUTOTRACK: autotrack_update();          break;
+        case MODE_OTA:       ble_ota_update();            break;
         default: break;
     }
 
