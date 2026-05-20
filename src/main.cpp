@@ -153,7 +153,7 @@ void loop() {
         return;
     }
 
-    if (currentMode == MODE_MENU && button_short_pressed()) {
+    if (currentMode == MODE_MENU && (button_short_pressed() || button_double_pressed())) {
         menu_update();
         menu_draw();
         return;

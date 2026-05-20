@@ -3,7 +3,7 @@
 
 // ISR variables
 static volatile uint32_t isrPressStart = 0;
-static volatile uint32_t isrReleaseTime = 0;
+static volatile uint32_t isrLastEdge   = 0;
 static volatile bool     isrPressed = false;
 static volatile uint8_t  isrClickCount = 0;
 
@@ -15,15 +15,18 @@ static void button_isr() {
     bool state = digitalRead(PIN_BUTTON);
     uint32_t now = millis();
     
+    // Ignore any bounce edges within 30ms of the last edge
+    if (now - isrLastEdge < 30) return;
+    isrLastEdge = now;
+    
     if (state == LOW) {
-        if (!isrPressed && (now - isrReleaseTime > 50)) {
+        if (!isrPressed) {
             isrPressed = true;
             isrPressStart = now;
         }
     } else {
-        if (isrPressed && (now - isrPressStart > 50)) {
+        if (isrPressed) {
             isrPressed = false;
-            isrReleaseTime = now;
             isrClickCount++;
         }
     }
