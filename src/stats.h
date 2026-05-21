@@ -4,3 +4,4 @@
 void stats_record_packet(uint32_t nodeId, float rssi);
 void stats_enter();
 void stats_update();
+void stats_short_press();

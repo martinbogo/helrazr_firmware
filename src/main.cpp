@@ -207,6 +207,13 @@ void loop() {
         }
     }
 
+    if (currentMode == MODE_STATS) {
+        if (button_short_pressed()) {
+            stats_short_press();
+            return;
+        }
+    }
+
     switch (currentMode) {
         case MODE_STATUS: {
             if (now - lastStatusUpdate >= 1000) {
