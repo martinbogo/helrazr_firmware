@@ -173,6 +173,7 @@ void power_init() {
     if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_EXT0) return;
 
     neopixel_init();
+    pinMode(PIN_BUTTON, INPUT_PULLUP);
 
     uint32_t t = millis();
     bool awake = false;
