@@ -124,7 +124,9 @@ async def run(zip_path):
         await d.expect(0x04)
         
         print("Activating!")
-        await d.send_cmd(struct.pack("<B", 0x05))
+        await c.write_gatt_char(CTRL, struct.pack("<B", 0x05), response=False)
+        # Allow BLE stack time to physically transmit the activation packet before closing socket
+        await asyncio.sleep(1.0)
         print("Success, device will reboot.")
         
 asyncio.run(run(sys.argv[1]))
