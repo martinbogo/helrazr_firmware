@@ -42,7 +42,7 @@ void noise_enter() {
     
     display_clear();
 #if HAS_OLED
-    display_draw_text_abs(5, 0, DISPLAY_CYAN, "Noise Floor");
+    display_draw_text_abs(5, 0, DISPLAY_CYAN, MESH_CHANNELS[channelIdx].name);
 #else
     char buf[40];
     snprintf(buf, sizeof(buf), "Noise Floor: %s (%.1f)", MESH_CHANNELS[channelIdx].name, MESH_CHANNELS[channelIdx].freqMHz);
