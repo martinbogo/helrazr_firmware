@@ -47,14 +47,24 @@ jobs:
           draft: true
           generate_release_notes: true
           body: |
+            ### 🌐 Web Flasher Instructions
+            You can install these firmware files directly from your browser using the [Meshtastic Web Flasher](https://flasher.meshtastic.org/).
+            1. Connect your device via USB.
+            2. Go to [flasher.meshtastic.org](https://flasher.meshtastic.org/) (requires a WebSerial supported browser like Chrome or Edge).
+            3. For **Heltec V3**, upload the `helrazr-heltec_v3.factory.bin` file.
+            4. For **Heltec T114**, double-click the reset button to enter bootloader mode, then select the `helrazr-t114.uf2` file.
+            5. Follow the prompts to complete the flashing process.
+
+            ---
+
             ### 📦 Firmware Artifacts Guide
 
             **Heltec T114 (nRF52)**
-            * **`helrazr-t114.uf2`**: For initial USB flashing. Double-click the device's reset button to mount the UF2 drive, then drag-and-drop this file over, or flash via the Web Flasher.
+            * **`helrazr-t114.uf2`**: For USB drag-and-drop flashing (by double-clicking the reset button) or the Web Flasher.
             * **`helrazr-t114-nrf-dfu.zip`**: DFU package for BLE Over-The-Air (OTA) flashing from a mobile app (like nRF Connect) or custom scripts.
 
             **Heltec V3 (ESP32)**
-            * **`helrazr-heltec_v3.factory.bin`**: The complete image (includes bootloader, partitions, and application). Flash this via the Web Flasher or `esptool.py` at offset `0x0`.
+            * **`helrazr-heltec_v3.factory.bin`**: The complete image (includes bootloader, partitions, and application). Used for the Web Flasher or `esptool.py` (offset `0x0`).
             * **`helrazr-heltec_v3-app-only.bin`**: Application-only binary, typically used for local, partial OTA updates.
 
             ---
