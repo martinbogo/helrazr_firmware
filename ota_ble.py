@@ -17,10 +17,10 @@ SERVICE_UUID      = "0000ffff-0000-1000-8000-00805f9b34fb"
 CHAR_CONTROL_UUID = "0000ff01-0000-1000-8000-00805f9b34fb"
 CHAR_DATA_UUID    = "0000ff02-0000-1000-8000-00805f9b34fb"
 
-# Nordic DFU Service (T114)
-NORDIC_DFU_SERVICE = "0000fe59-0000-1000-8000-00805f9b34fb"
-NORDIC_CP_CHAR     = "8ec90001-f315-4f60-9fb8-838830daea50"
-NORDIC_PKT_CHAR    = "8ec90002-f315-4f60-9fb8-838830daea50"
+# Nordic DFU Service (Legacy / Default Bootloader for older softdevices)
+NORDIC_DFU_SERVICE = "00001530-1212-efde-1523-785feabcd123"
+NORDIC_CP_CHAR     = "00001531-1212-efde-1523-785feabcd123"
+NORDIC_PKT_CHAR    = "00001532-1212-efde-1523-785feabcd123"
 
 # =======================================================================
 # ESP32-S3 Flash Protocol
@@ -30,8 +30,19 @@ async def upload_esp32_ota(client, bin_path):
     file_size = os.path.getsize(bin_path)
     print(f"File size: {file_size} bytes")
     
+    # Workaround for macOS aggressive characteristic caching returning duplicates
+    ctrl_char = None
+    data_char = None
+    for service in client.services:
+        if service.uuid.lower() == SERVICE_UUID.lower():
+            for char in service.characteristics:
+                if char.uuid.lower() == CHAR_CONTROL_UUID.lower() and not ctrl_char:
+                    ctrl_char = char
+                if char.uuid.lower() == CHAR_DATA_UUID.lower() and not data_char:
+                    data_char = char
+                    
     start_cmd = bytearray([0x01]) + file_size.to_bytes(4, byteorder='little')
-    await client.write_gatt_char(CHAR_CONTROL_UUID, start_cmd, response=True)
+    await client.write_gatt_char(ctrl_char or CHAR_CONTROL_UUID, start_cmd, response=True)
     
     chunk_size = 256
     uploaded = 0
@@ -40,14 +51,14 @@ async def upload_esp32_ota(client, bin_path):
             chunk = f.read(chunk_size)
             if not chunk:
                 break
-            await client.write_gatt_char(CHAR_DATA_UUID, chunk, response=False)
+            await client.write_gatt_char(data_char or CHAR_DATA_UUID, chunk, response=False)
             uploaded += len(chunk)
             print(f"\rUploaded {uploaded}/{file_size} ({(uploaded*100)/file_size:.1f}%)", end="")
             await asyncio.sleep(0.005)
             
     print("\nSending END command...")
     end_cmd = bytearray([0x02])
-    await client.write_gatt_char(CHAR_CONTROL_UUID, end_cmd, response=True)
+    await client.write_gatt_char(ctrl_char or CHAR_CONTROL_UUID, end_cmd, response=True)
     print("Done! ESP32 should restart.")
 
 # =======================================================================
@@ -148,12 +159,11 @@ async def main(file_path):
     def match_device(device, adv_data):
         # 1) Check exact names
         name = device.name or adv_data.local_name or ""
-        if "Helrazr-OTA" in name or "DfuTarg" in name:
+        if "Helrazr-OTA" in name or "DfuTarg" in name or "HT-" in name or "-OTA" in name:
             return True
         # 2) Check UUIDs for ESP32 target
-        if SERVICE_UUID in adv_data.service_uuids:
-            return True
-        if SERVICE_UUID.upper() in adv_data.service_uuids:
+        uuids_str = str(adv_data.service_uuids).lower()
+        if SERVICE_UUID.lower() in uuids_str or "ffff" in uuids_str:
             return True
         # 3) Check UUIDs for Nordic target
         if NORDIC_DFU_SERVICE in adv_data.service_uuids:
@@ -170,7 +180,7 @@ async def main(file_path):
 
     target_type = 'esp32'
     name = target_device.name or ""
-    if "DfuTarg" in name:
+    if "DfuTarg" in name or "HT-" in name:
         target_type = 'nordic'
     # Fallback to identify by metadata
     elif NORDIC_DFU_SERVICE in target_device.metadata.get('uuids', []):

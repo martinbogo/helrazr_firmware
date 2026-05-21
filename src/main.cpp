@@ -180,9 +180,15 @@ void loop() {
         return;
     }
 
-    if (currentMode == MODE_WATERFALL && button_short_pressed()) {
-        waterfall_short_press();
-        return;
+    if (currentMode == MODE_WATERFALL) {
+        if (button_double_pressed()) {
+            waterfall_double_press();
+            return;
+        }
+        if (button_short_pressed()) {
+            waterfall_short_press();
+            return;
+        }
     }
 
     if (currentMode == MODE_NOISE && button_short_pressed()) {

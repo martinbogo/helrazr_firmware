@@ -20,31 +20,43 @@ Custom firmware for the Heltec Mesh Node T114 (nRF52840 + SX1262) and Heltec WiF
 
 ### Build
 
+Cross-platform helper scripts are provided that wrap `pio`. These scripts require Python 3 and will natively handle dependencies on Windows, macOS, and Linux:
+
 ```bash
 # For Heltec T114
-pio run -e t114
+python build_and_flash.py -b t114
 
 # For Heltec V3
-pio run -e heltec_v3
+python build_and_flash.py -b v3
 ```
 
-### Flash
+### USB Flash
+
+Use the `-p` parameter to automatically target a USB serial port:
 
 #### Heltec T114
 1. Double-tap the reset button quickly. The display shows the HT-n5262 bootloader screen.
 2. Run:
 ```bash
-/path/to/.platformio/packages/framework-arduinoadafruitnrf52/tools/adafruit-nrfutil/macos/adafruit-nrfutil \
-  dfu serial --package .pio/build/t114/firmware.zip \
-  -p /dev/tty.usbmodem101 -b 115200
+python build_and_flash.py -b t114 -p /dev/tty.usbmodem101
 ```
 
 #### Heltec V3
 ```bash
-pio run -e heltec_v3 -t upload --upload-port /dev/tty.usbmodem101
+python build_and_flash.py -b v3 -p /dev/tty.usbmodem101
 ```
 
-*(On Linux, replace `/dev/tty.usbmodem101` with the appropriate port such as `/dev/ttyACM0`)*
+*(On Windows, use `COM3`. On Linux, use `/dev/ttyACM0`)*
+
+### Bluetooth OTA Flash
+
+Use the new OTA script tool to send firmware upgrades wirelessly:
+
+```bash
+python build_and_ota.py -b t114
+# or
+python build_and_ota.py -b v3
+```
 
 ### Connect Serial Shell
 
