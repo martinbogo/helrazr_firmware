@@ -170,16 +170,13 @@ void waterfall_update() {
             } else if (level == 4) {
                 display_fill_rect_abs(x0, y, bw, 1, DISPLAY_WHITE);
             } else {
-                // Standard 4x4 Bayer ordered dither matrix
-                static const uint8_t bayer4x4[4][4] = {
-                    {  0,  8,  2, 10 },
-                    { 12,  4, 14,  6 },
-                    {  3, 11,  1,  9 },
-                    { 15,  7, 13,  5 }
+                // 2x2 Bayer ordered dither matrix (perfectly maps to our 5 OLED levels)
+                static const uint8_t bayer2x2[2][2] = {
+                    { 0, 2 },
+                    { 3, 1 }
                 };
-                int threshold = level * 4; // levels 1,2,3 map to thresholds 4,8,12
                 for (int px = x0; px < x1; px++) {
-                    if (bayer4x4[y % 4][px % 4] < threshold) {
+                    if (bayer2x2[y % 2][px % 2] < level) {
                         display_fill_rect_abs(px, y, 1, 1, DISPLAY_WHITE);
                     } else {
                         display_fill_rect_abs(px, y, 1, 1, DISPLAY_BLACK);
