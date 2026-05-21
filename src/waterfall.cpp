@@ -55,9 +55,11 @@ static const uint16_t PALLETES[8][8] = {
 };
 
 static void drawTftColorLegend() {
-    // Draw 8 blocks of 6 pixels wide by 10 pixels high at top right (x=165, y=5)
+    // Draw 8 blocks of 16 pixels wide by 8 pixels high centered at the very bottom (y=126)
+    // Display height is 135. Frequencies are drawn at y=115..123.
+    // Width = 8 * 16 = 128. Start x = (240 - 128) / 2 = 56
     for (int i = 0; i < 8; i++) {
-        display_fill_rect_abs(165 + i * 6, 5, 6, 10, PALLETES[colorMode][i]);
+        display_fill_rect_abs(56 + i * 16, 126, 16, 8, PALLETES[colorMode][i]);
     }
 }
 #else
