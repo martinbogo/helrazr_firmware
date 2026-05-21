@@ -29,6 +29,8 @@ static bool isPaused = false;
 
 #if !HAS_OLED
 static int colorMode = 0; // 0=Classic, 1=Grayscale, 2=Ironbow, 3=Viridis, 4=Ocean, 5=Matrix, 6=Magma, 7=Super Bright
+#else
+static bool invertOled = false;
 #endif
 
 #if HAS_OLED
@@ -100,6 +102,8 @@ void waterfall_double_press() {
     isPaused = false; // Reset play state
 #if !HAS_OLED
     colorMode = (colorMode + 1) % 8;
+#else
+    invertOled = !invertOled;
 #endif
 }
 
@@ -185,10 +189,11 @@ void waterfall_update() {
 
 #if HAS_OLED
             int level = getOledLevel(rssi);
+            
             if (level == 0) {
-                display_fill_rect_abs(x0, y, bw, 1, DISPLAY_BLACK);
+                display_fill_rect_abs(x0, y, bw, 1, invertOled ? DISPLAY_WHITE : DISPLAY_BLACK);
             } else if (level == 4) {
-                display_fill_rect_abs(x0, y, bw, 1, DISPLAY_WHITE);
+                display_fill_rect_abs(x0, y, bw, 1, invertOled ? DISPLAY_BLACK : DISPLAY_WHITE);
             } else {
                 // 2x2 Bayer ordered dither matrix (perfectly maps to our 5 OLED levels)
                 static const uint8_t bayer2x2[2][2] = {
@@ -196,7 +201,10 @@ void waterfall_update() {
                     { 3, 1 }
                 };
                 for (int px = x0; px < x1; px++) {
-                    if (bayer2x2[scanIndex % 2][px % 2] < level) {
+                    bool fill_white = (bayer2x2[scanIndex % 2][px % 2] < level);
+                    if (invertOled) fill_white = !fill_white;
+                    
+                    if (fill_white) {
                         display_fill_rect_abs(px, y, 1, 1, DISPLAY_WHITE);
                     } else {
                         display_fill_rect_abs(px, y, 1, 1, DISPLAY_BLACK);
