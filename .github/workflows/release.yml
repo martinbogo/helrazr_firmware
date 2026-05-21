@@ -67,6 +67,7 @@ jobs:
             **For Heltec T114 (nRF52):**
             1. Double-click the reset button on your device to enter bootloader mode (a new USB drive will appear).
             2. Drag and drop the `helrazr-t114.uf2` file onto the drive.
+
             ---
 
             ### 📦 Firmware Artifacts Guide
