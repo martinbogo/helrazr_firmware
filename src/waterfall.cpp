@@ -296,11 +296,11 @@ void waterfall_update() {
             int cx = (x0 + x1) / 2;
 
             for (int y = GRAPH_Y; y < GRAPH_Y + GRAPH_H; y += 2) {
-                display_fill_rect_abs(cx, y, 1, 1, invertOled ? DISPLAY_WHITE : DISPLAY_BLACK);
+                display_fill_rect_abs(cx, y, 1, 1, invertOled ? DISPLAY_BLACK : DISPLAY_WHITE);
             }
             // Box fixed at top right to avoid overwriting peak directly
-            display_fill_rect_abs(94, 14, 34, 10, invertOled ? DISPLAY_WHITE : DISPLAY_BLACK);
-            display_draw_text_small_abs(96, 22, invertOled ? DISPLAY_BLACK : DISPLAY_WHITE, buf);
+            display_fill_rect_abs(94, 14, 34, 10, invertOled ? DISPLAY_BLACK : DISPLAY_WHITE);
+            display_draw_text_small_abs(96, 22, invertOled ? DISPLAY_WHITE : DISPLAY_BLACK, buf);
 #else
             // High-speed SPI burst draws rows directly on TFT, so we must calculate cx for the whole screen
             int cx = (targetCol * GRAPH_W) / NUM_STEPS + GRAPH_X + (GRAPH_W / NUM_STEPS / 2);
