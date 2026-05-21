@@ -29,7 +29,11 @@ static const char* LABELS[] = {
     "OTA Update",
 };
 
-void menu_init() { /* retained state: selected is not reset */ }
+static int last_page = -1;
+
+void menu_init() {
+    last_page = -1; // force clear when entering menu
+}
 
 void menu_update() {
     if (button_short_pressed()) {
@@ -43,8 +47,22 @@ void menu_update() {
 
 void menu_draw() {
 #if HAS_OLED
-    display_clear(); // clear buffer
+    const int MAX_ROWS = 4;
+#else
+    const int MAX_ROWS = 5;
 #endif
+    const int ITEMS_PER_PAGE = MAX_ROWS * 2;
+    int page = (selected - 1) / ITEMS_PER_PAGE;
+
+#if HAS_OLED
+    display_clear(); // clear buffer
+#else
+    if (page != last_page) {
+        display_clear(true);
+    }
+#endif
+    last_page = page;
+
 #if HAS_OLED
     display_draw_text_abs(25, 0, DISPLAY_CYAN, "Select Mode");
     display_draw_hline(0, 10, 128, DISPLAY_GRAY);
@@ -53,13 +71,6 @@ void menu_draw() {
     display_draw_hline(0, 20, 240, DISPLAY_GRAY);
 #endif
 
-#if HAS_OLED
-    const int MAX_ROWS = 4;
-#else
-    const int MAX_ROWS = 5;
-#endif
-    const int ITEMS_PER_PAGE = MAX_ROWS * 2;
-    int page = (selected - 1) / ITEMS_PER_PAGE;
     int startIndex = page * ITEMS_PER_PAGE + 1;
     int endIndex = startIndex + ITEMS_PER_PAGE - 1;
     if (endIndex >= MODE_COUNT) endIndex = MODE_COUNT - 1;
