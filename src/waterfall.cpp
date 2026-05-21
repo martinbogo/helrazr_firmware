@@ -31,32 +31,22 @@ static bool isPaused = false;
 static int colorMode = 0; // 0=Classic, 1=Grayscale, 2=Ironbow, 3=Viridis, 4=Ocean, 5=Matrix, 6=Magma, 7=Super Bright
 #endif
 
+#if HAS_OLED
+static int getOledLevel(int rssi) {
+    if (rssi < -110) return 0; // Black
+    if (rssi >= -80) return 4; // White
+    if (rssi < -100) return 1;
+    if (rssi < -90) return 2;
+    return 3;
+}
+#endif
+
 // Helper for RGB565 encoding
 #define C565(r, g, b) ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3))
 
-static uint16_t rssiToWaterfallColor(int rssi, int i, uint32_t scanIndex) {
+static uint16_t rssiToWaterfallColor(int rssi) {
 #if HAS_OLED
-    if (rssi < -110) return DISPLAY_BLACK;
-    if (rssi >= -80) return DISPLAY_WHITE;
-
-    int level = 0;
-    if (rssi < -100) level = 1;
-    else if (rssi < -90) level = 2;
-    else level = 3;
-
-    // 4x4 Latin Square pattern for data-locked varying density without animation.
-    static const uint8_t pattern[4][4] = {
-        { 0, 2, 1, 3 },
-        { 2, 1, 3, 0 },
-        { 1, 3, 0, 2 },
-        { 3, 0, 2, 1 }
-    };
-
-    if (pattern[scanIndex % 4][i % 4] < level) {
-        return DISPLAY_WHITE;
-    } else {
-        return DISPLAY_BLACK;
-    }
+    return DISPLAY_BLACK; // Replaced by per-pixel logic below
 #else
     static const uint16_t PALLETES[8][8] = {
         // 0: Classic
@@ -172,9 +162,32 @@ void waterfall_update() {
             if (bw < 1) bw = 1;
             
             int rssi = history[histRow][i] - 135;
-            uint16_t color = rssiToWaterfallColor(rssi, i, scanIndex);
-            
+
+#if HAS_OLED
+            int level = getOledLevel(rssi);
+            if (level == 0) {
+                display_fill_rect_abs(x0, y, bw, 1, DISPLAY_BLACK);
+            } else if (level == 4) {
+                display_fill_rect_abs(x0, y, bw, 1, DISPLAY_WHITE);
+            } else {
+                static const uint8_t pattern[4][4] = {
+                    { 0, 2, 1, 3 },
+                    { 2, 1, 3, 0 },
+                    { 1, 3, 0, 2 },
+                    { 3, 0, 2, 1 }
+                };
+                for (int px = x0; px < x1; px++) {
+                    if (pattern[y % 4][px % 4] < level) {
+                        display_fill_rect_abs(px, y, 1, 1, DISPLAY_WHITE);
+                    } else {
+                        display_fill_rect_abs(px, y, 1, 1, DISPLAY_BLACK);
+                    }
+                }
+            }
+#else
+            uint16_t color = rssiToWaterfallColor(rssi);
             display_fill_rect_abs(x0, y, bw, 1, color);
+#endif
         }
     }
 
