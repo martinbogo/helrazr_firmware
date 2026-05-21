@@ -170,14 +170,16 @@ void waterfall_update() {
             } else if (level == 4) {
                 display_fill_rect_abs(x0, y, bw, 1, DISPLAY_WHITE);
             } else {
-                static const uint8_t pattern[4][4] = {
-                    { 0, 2, 1, 3 },
-                    { 2, 1, 3, 0 },
-                    { 1, 3, 0, 2 },
-                    { 3, 0, 2, 1 }
+                // Standard 4x4 Bayer ordered dither matrix
+                static const uint8_t bayer4x4[4][4] = {
+                    {  0,  8,  2, 10 },
+                    { 12,  4, 14,  6 },
+                    {  3, 11,  1,  9 },
+                    { 15,  7, 13,  5 }
                 };
+                int threshold = level * 4; // levels 1,2,3 map to thresholds 4,8,12
                 for (int px = x0; px < x1; px++) {
-                    if (pattern[y % 4][px % 4] < level) {
+                    if (bayer4x4[y % 4][px % 4] < threshold) {
                         display_fill_rect_abs(px, y, 1, 1, DISPLAY_WHITE);
                     } else {
                         display_fill_rect_abs(px, y, 1, 1, DISPLAY_BLACK);
