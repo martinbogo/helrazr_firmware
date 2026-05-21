@@ -58,12 +58,18 @@ jobs:
           generate_release_notes: true
           body: |
             ### 🌐 Web Flasher Instructions
-            You can install these firmware files directly from your browser using the [Meshtastic Web Flasher](https://flasher.meshtastic.org/).
-            1. Connect your device via USB.
-            2. Go to [flasher.meshtastic.org](https://flasher.meshtastic.org/) (requires a WebSerial supported browser like Chrome or Edge).
-            3. For **Heltec V3**, upload the `helrazr-heltec_v3.factory.bin` file.
-            4. For **Heltec T114**, double-click the reset button to enter bootloader mode, then select the `helrazr-t114.uf2` file.
-            5. Follow the prompts to complete the flashing process.
+            You can install these firmware files directly from your browser using WebSerial supported browsers (Chrome, Edge).
+
+            **For Heltec V3 (ESP32-S3):**
+            1. Go to the [Espressif Web Flasher](https://espressif.github.io/esptool-js/).
+            2. Connect your device via USB.
+            3. Set the offset to **`0x0`** and upload the `helrazr-heltec_v3.factory.bin` file.
+            4. Click **Program**.
+            *(Note: Do not use the Meshtastic Web Flasher for custom ESP32 binaries, as it incorrectly attempts to flash all binaries at offset 0x10000, causing a bootloop).*
+
+            **For Heltec T114 (nRF52):**
+            1. Double-click the reset button on your device to enter bootloader mode (a new USB drive will appear).
+            2. Drag and drop the `helrazr-t114.uf2` file onto the drive.
 
             ---
 

@@ -18,7 +18,7 @@ def generate_uf2(source, target, env):
         print(f"[Artifacts] Created: {uf2_path}")
 
 def generate_factory_bin(source, target, env):
-    print(f"\n[Artifacts] Generating merged factory.bin for V3...")
+    print(f"\n[Artifacts] Generating merged factory.bin for V3..."); 
     build_dir = env.get("PROJECT_BUILD_DIR")
     env_name = env.get("PIOENV")
     out_dir = os.path.join(build_dir, env_name)

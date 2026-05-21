@@ -168,7 +168,7 @@ void shell_init() {
         delay(10);
     }
     Serial.println();
-    Serial.println("=== Heltec T114 Firmware ===");
+    Serial.println("=== HelRazr Firmware ===");
     Serial.println("Type 'help' for commands");
     Serial.print("> ");
 }
