@@ -4,6 +4,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/Picopixel.h>
 
 #if HAS_TFT
 
@@ -275,6 +276,26 @@ void display_draw_text_small_abs(int x, int y, uint16_t color, const char* text)
     tft.print(text);
 #if HAS_TFT
     tft.setFont(&FreeSans9pt7b);
+#endif
+}
+
+void display_draw_text_tiny_abs(int x, int y, uint16_t color, const char* text) {
+    tft.setFont(&Picopixel);
+    tft.setTextSize(1);
+    // Custom fonts use the baseline for y coordinate. Picopixel characters are ~5px tall,
+    // so we shift y down by 5 to match the top-left coordinate system expected by callers.
+    int baseline_y = y + 5;
+#if HAS_TFT
+    tft.setTextColor(color, DISPLAY_BLACK);
+#else
+    tft.setTextColor(color);
+#endif
+    tft.setCursor(x, baseline_y);
+    tft.print(text);
+#if HAS_TFT
+    tft.setFont(&FreeSans9pt7b);
+#else
+    tft.setFont(NULL);
 #endif
 }
 

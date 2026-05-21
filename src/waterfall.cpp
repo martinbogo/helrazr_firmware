@@ -112,9 +112,9 @@ void waterfall_enter() {
     display_clear();
 #if HAS_OLED
     display_draw_text_abs(5, 0, DISPLAY_CYAN, "Waterfall 902-928");
-    display_draw_text_small_abs(0,   GRAPH_Y + GRAPH_H + 4, DISPLAY_CYAN, "02");
-    display_draw_text_small_abs(54,  GRAPH_Y + GRAPH_H + 4, DISPLAY_CYAN, "15");
-    display_draw_text_small_abs(115, GRAPH_Y + GRAPH_H + 4, DISPLAY_CYAN, "28");
+    display_draw_text_tiny_abs(0,   GRAPH_Y + GRAPH_H + 3, DISPLAY_CYAN, "02");
+    display_draw_text_tiny_abs(54,  GRAPH_Y + GRAPH_H + 3, DISPLAY_CYAN, "15");
+    display_draw_text_tiny_abs(115, GRAPH_Y + GRAPH_H + 3, DISPLAY_CYAN, "28");
 #else
     display_draw_text_abs(30, 15, DISPLAY_CYAN, "Waterfall 902-928 MHz");
     display_draw_text_small_abs(0,   GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "902");
