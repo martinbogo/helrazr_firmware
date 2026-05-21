@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HelRazr Web Flasher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-200 font-sans p-8">
+    <div class="max-w-4xl mx-auto space-y-8">
+        <header class="text-center space-y-4">
+            <h1 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-600">HelRazr Web Flasher</h1>
+            <p class="text-gray-400">Install custom firmware on your Heltec devices directly from your browser.</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- T114 Section -->
+            <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-xl">
+                <h2 class="text-2xl font-bold mb-4 text-blue-400">Heltec T114 (nRF52)</h2>
+                <div class="space-y-4 text-sm text-gray-300">
+                    <p>The T114 uses a simple drag-and-drop UF2 bootloader. No browser flashing tool is required.</p>
+                    <ol class="list-decimal pl-5 space-y-2">
+                        <li>Download your <code class="bg-gray-900 text-orange-400 px-1 py-0.5 rounded">helrazr-t114.uf2</code> file.</li>
+                        <li>Connect your T114 via USB.</li>
+                        <li><strong>Double-click the reset button</strong> quickly to enter bootloader mode.</li>
+                        <li>A new USB drive will appear on your computer (usually named <code>NRF52BOOT</code> or similar).</li>
+                        <li>Drag and drop the <code>.uf2</code> file onto the drive.</li>
+                        <li>The device will automatically reboot with the new firmware.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- V3 Section -->
+            <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-xl">
+                <h2 class="text-2xl font-bold mb-4 text-orange-400">Heltec V3 (ESP32-S3)</h2>
+                <p class="text-sm text-gray-300 mb-6">Use this tool to securely flash the custom <code>factory.bin</code> over WebSerial.</p>
+                
+                <div class="space-y-4">
+                    <!-- File Selection -->
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-gray-400">1. Select Firmware File</label>
+                        <input type="file" id="fileInput" accept=".bin" class="block w-full text-sm text-gray-400
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-md file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-orange-600 file:text-white
+                            hover:file:bg-orange-700 cursor-pointer border border-gray-700 rounded-md p-2 bg-gray-900"/>
+                        <p class="mt-1 text-xs text-gray-500">Ensure you select the <code class="text-orange-400">helrazr-heltec_v3.factory.bin</code>.</p>
+                    </div>
+
+                    <!-- Connect -->
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-gray-400">2. Connect Device</label>
+                        <button id="connectBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed">
+                            Connect to Port
+                        </button>
+                    </div>
+
+                    <!-- Flash -->
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-gray-400">3. Flash Firmware</label>
+                        <button id="flashBtn" disabled class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center">
+                            Flash Device
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Terminal Output -->
+        <div class="bg-black rounded-xl border border-gray-700 shadow-xl overflow-hidden flex flex-col h-64">
+            <div class="bg-gray-800 px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-700">
+                Log Output
+            </div>
+            <div id="terminal" class="p-4 font-mono text-xs text-green-500 overflow-y-auto flex-1 whitespace-pre-wrap">Waiting for connection...
+</div>
+        </div>
+    </div>
+
+    <!-- Main Logic -->
+    <script type="module">
+        import { ESPLoader, Transport } from "https://unpkg.com/esptool-js@0.6.0/bundle/index.js";
+
+        let esploader;
+        let transport;
+        let port;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const flashBtn = document.getElementById('flashBtn');
+        const fileInput = document.getElementById('fileInput');
+        const terminal = document.getElementById('terminal');
+
+        function logMsg(msg) {
+            terminal.textContent += msg + '\n';
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        async function connect() {
+            try {
+                if (!navigator.serial) {
+                    throw new Error("WebSerial is not supported in this browser. Please use Chrome or Edge.");
+                }
+
+                logMsg("Requesting serial port...");
+                port = await navigator.serial.requestPort();
+                
+                logMsg("Opening port at 115200 baud...");
+                transport = new Transport(port, true);
+                
+                const loaderOptions = {
+                    transport,
+                    baudrate: 115200,
+                    enableTracing: false,
+                    terminal: {
+                        clean() { terminal.textContent = ''; },
+                        writeLine(data) { logMsg(data); },
+                        write(data) { terminal.textContent += data; terminal.scrollTop = terminal.scrollHeight; }
+                    }
+                };
+                
+                esploader = new ESPLoader(loaderOptions);
+                const chip = await esploader.main();
+                logMsg(`Connected to chip: ${chip}`);
+
+                // Update UI
+                connectBtn.textContent = "Connected";
+                connectBtn.classList.replace("bg-blue-600", "bg-green-600");
+                connectBtn.disabled = true;
+                flashBtn.disabled = !fileInput.files.length;
+            } catch (err) {
+                logMsg(`Error connecting: ${err.message}`);
+                console.error(err);
+            }
+        }
+
+        async function flash() {
+            try {
+                if (!esploader || !fileInput.files.length) return;
+                
+                const file = fileInput.files[0];
+                const fileData = await file.arrayBuffer();
+                const binaryData = new Uint8Array(fileData);
+
+                flashBtn.disabled = true;
+                flashBtn.textContent = "Flashing...";
+                logMsg(`\nStarting flash with ${file.name} at offset 0x0...`);
+
+                const flashOptions = {
+                    fileArray: [{ data: binaryData, address: 0x0 }],
+                    flashSize: "keep",
+                    eraseAll: false,
+                    compress: true,
+                    flashMode: "keep",
+                    flashFreq: "keep",
+                    reportProgress(fileIndex, written, total) {
+                        const percent = Math.round((written / total) * 100);
+                        if (percent % 10 === 0) {
+                             logMsg(`Progress: ${percent}%`);
+                        }
+                    }
+                };
+
+                await esploader.write_flash(flashOptions);
+                logMsg("\nFlash complete! Please manually press the RESET button on your device.");
+                flashBtn.textContent = "Flash Complete";
+                flashBtn.classList.replace("bg-orange-600", "bg-green-600");
+            } catch (err) {
+                logMsg(`\nError during flash: ${err.message}`);
+                console.error(err);
+                flashBtn.disabled = false;
+                flashBtn.textContent = "Retry Flash";
+            }
+        }
+
+        // Event Listeners
+        connectBtn.addEventListener('click', connect);
+        flashBtn.addEventListener('click', flash);
+        
+        fileInput.addEventListener('change', () => {
+            if (esploader && fileInput.files.length > 0) {
+                flashBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
