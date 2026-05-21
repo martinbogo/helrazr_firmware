@@ -110,11 +110,12 @@ async def run(zip_path):
             packets_sent += 1
             
             if packets_sent % prn_target == 0:
-                try:
-                    await asyncio.wait_for(d.prn_event.wait(), timeout=10.0)
-                except asyncio.TimeoutError:
-                    print(f"\nTimeout waiting for PRN at packet {packets_sent}!")
-                    return
+                if bytes_sent < len(bin_file):
+                    try:
+                        await asyncio.wait_for(d.prn_event.wait(), timeout=10.0)
+                    except asyncio.TimeoutError:
+                        print(f"\nTimeout waiting for PRN at packet {packets_sent}!")
+                        return
                     
                 print(f"\rSent {bytes_sent}/{len(bin_file)} bytes", end="", flush=True)
 
