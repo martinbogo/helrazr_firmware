@@ -196,7 +196,7 @@ void waterfall_update() {
                     { 3, 1 }
                 };
                 for (int px = x0; px < x1; px++) {
-                    if (bayer2x2[y % 2][px % 2] < level) {
+                    if (bayer2x2[scanIndex % 2][px % 2] < level) {
                         display_fill_rect_abs(px, y, 1, 1, DISPLAY_WHITE);
                     } else {
                         display_fill_rect_abs(px, y, 1, 1, DISPLAY_BLACK);
