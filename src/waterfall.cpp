@@ -146,6 +146,26 @@ void waterfall_update() {
     nextRow = (nextRow + 1) % GRAPH_H;
     totalScans++;
 
+#if !HAS_OLED
+    // High-speed SPI burst renderer for TFT
+    uint16_t rowBuf[240]; 
+    for (int r = 0; r < GRAPH_H; r++) {
+        int histRow = (nextRow - 1 - r + GRAPH_H) % GRAPH_H;
+        int y = GRAPH_Y + r;
+
+        for (int i = 0; i < NUM_STEPS; i++) {
+            int x0 = (i       * GRAPH_W) / NUM_STEPS;
+            int x1 = ((i + 1) * GRAPH_W) / NUM_STEPS;
+            int rssi = history[histRow][i] - 135;
+            uint16_t color = rssiToWaterfallColor(rssi);
+            
+            for (int px = x0; px < x1 && px < GRAPH_W; px++) {
+                rowBuf[px] = color;
+            }
+        }
+        tft.drawRGBBitmap(GRAPH_X, y, rowBuf, GRAPH_W, 1);
+    }
+#else
     // Draw the entire buffer
     for (int r = 0; r < GRAPH_H; r++) {
         // Map logical row (newest at bottom or top?)
@@ -189,6 +209,7 @@ void waterfall_update() {
 #endif
         }
     }
+#endif
 
     display_update_buffer();
 }
