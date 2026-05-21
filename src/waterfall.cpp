@@ -68,13 +68,13 @@ static uint16_t rssiToWaterfallColor(int rssi) {
     };
 
     int level = 0;
-    if (rssi >= -60) level = 7;
-    else if (rssi >= -70) level = 6;
-    else if (rssi >= -80) level = 5;
-    else if (rssi >= -90) level = 4;
-    else if (rssi >= -100) level = 3;
-    else if (rssi >= -110) level = 2;
-    else if (rssi >= -120) level = 1;
+    if (rssi >= -40) level = 7;
+    else if (rssi >= -50) level = 6;
+    else if (rssi >= -60) level = 5;
+    else if (rssi >= -70) level = 4;
+    else if (rssi >= -80) level = 3;
+    else if (rssi >= -90) level = 2;
+    else if (rssi >= -100) level = 1;
 
     return PALLETES[colorMode][level];
 #endif
