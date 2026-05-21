@@ -33,10 +33,10 @@ static int colorMode = 0; // 0=Classic, 1=Grayscale, 2=Ironbow, 3=Viridis, 4=Oce
 
 #if HAS_OLED
 static int getOledLevel(int rssi) {
-    if (rssi < -110) return 0; // Black
-    if (rssi >= -80) return 4; // White
-    if (rssi < -100) return 1;
-    if (rssi < -90) return 2;
+    if (rssi < -100) return 0; // Black background for typical noise floor
+    if (rssi >= -70) return 4; // Solid white for strong signals
+    if (rssi < -90) return 1;
+    if (rssi < -80) return 2;
     return 3;
 }
 #endif
