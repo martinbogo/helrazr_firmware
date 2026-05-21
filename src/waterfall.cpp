@@ -88,6 +88,10 @@ void waterfall_short_press() {
     display_fill_rect_abs(112, 0, 16, 10, DISPLAY_BLACK);
     if (isPaused) {
         display_draw_text_small_abs(114, 0, DISPLAY_WHITE, "II");
+    } else {
+        // Redraw the original title text over the cleared area
+        // It's drawn with a transparent background, so it seamlessly patches the missing "Hz"
+        display_draw_text_abs(5, 0, DISPLAY_CYAN, "Waterfall 902-928MHz");
     }
 #else
     display_fill_rect_abs(220, 5, 20, 20, DISPLAY_BLACK);
@@ -99,11 +103,19 @@ void waterfall_short_press() {
 }
 
 void waterfall_double_press() {
+    bool wasPaused = isPaused;
     isPaused = false; // Reset play state
 #if !HAS_OLED
     colorMode = (colorMode + 1) % 8;
+    if (wasPaused) {
+        display_fill_rect_abs(220, 5, 20, 20, DISPLAY_BLACK);
+    }
 #else
     invertOled = !invertOled;
+    if (wasPaused) {
+        display_fill_rect_abs(112, 0, 16, 10, DISPLAY_BLACK);
+        display_draw_text_abs(5, 0, DISPLAY_CYAN, "Waterfall 902-928MHz");
+    }
 #endif
 }
 
