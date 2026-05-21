@@ -45,7 +45,7 @@ void noise_enter() {
     display_draw_text_abs(5, 0, DISPLAY_CYAN, MESH_CHANNELS[channelIdx].name);
 #else
     char buf[40];
-    snprintf(buf, sizeof(buf), "Noise Floor: %s (%.1f)", MESH_CHANNELS[channelIdx].name, MESH_CHANNELS[channelIdx].freqMHz);
+    snprintf(buf, sizeof(buf), "Noise Floor: %s     ", MESH_CHANNELS[channelIdx].name);
     display_draw_text_abs(5, 15, DISPLAY_CYAN, buf);
 #endif
     display_update_buffer();
