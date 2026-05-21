@@ -185,7 +185,8 @@
                 };
 
                 await esploader.writeFlash(flashOptions);
-                logMsg("\nFlash complete! Please manually press the RESET button on your device.");
+                logMsg("\nFlash complete! Rebooting device...");
+                await esploader.after("hard_reset");
                 flashBtn.textContent = "Flash Complete";
                 flashBtn.classList.replace("bg-orange-600", "bg-green-600");
             } catch (err) {
