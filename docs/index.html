@@ -60,6 +60,15 @@
                         </select>
                     </div>
 
+                    <!-- Erase Flash -->
+                    <div class="mb-4">
+                        <label class="flex items-center text-sm font-medium text-gray-400 cursor-pointer">
+                            <input type="checkbox" id="eraseFlash" class="mr-2 w-4 h-4 rounded border-gray-700 bg-gray-900 text-orange-600 focus:ring-orange-500">
+                            Erase entire flash before installation
+                        </label>
+                        <p class="mt-1 ml-6 text-xs text-gray-500">Recommended when switching from Meshtastic.</p>
+                    </div>
+
                     <!-- Connect -->
                     <div>
                         <label class="block text-sm font-medium mb-2 text-gray-400">2. Connect Device</label>
@@ -102,6 +111,7 @@
         const fileInput = document.getElementById('fileInput');
         const terminal = document.getElementById('terminal');
         const baudRate = document.getElementById('baudRate');
+        const eraseFlash = document.getElementById('eraseFlash');
 
         function logMsg(msg) {
             terminal.textContent += msg + '\n';
@@ -162,7 +172,7 @@
                 const flashOptions = {
                     fileArray: [{ data: binaryData, address: 0x0 }],
                     flashSize: "keep",
-                    eraseAll: false,
+                    eraseAll: eraseFlash.checked,
                     compress: true,
                     flashMode: "keep",
                     flashFreq: "keep",
