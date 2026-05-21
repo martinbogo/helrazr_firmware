@@ -48,6 +48,18 @@
                         <p class="mt-1 text-xs text-gray-500">Ensure you select the <code class="text-orange-400">helrazr-heltec_v3.factory.bin</code>.</p>
                     </div>
 
+                    
+                    <!-- Baud Rate -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2 text-gray-400">Baud Rate</label>
+                        <select id="baudRate" class="block w-full text-sm text-gray-400 cursor-pointer border border-gray-700 rounded-md p-2 bg-gray-900">
+                            <option value="115200" selected>115200</option>
+                            <option value="230400">230400</option>
+                            <option value="460800">460800</option>
+                            <option value="921600">921600</option>
+                        </select>
+                    </div>
+
                     <!-- Connect -->
                     <div>
                         <label class="block text-sm font-medium mb-2 text-gray-400">2. Connect Device</label>
@@ -89,6 +101,7 @@
         const flashBtn = document.getElementById('flashBtn');
         const fileInput = document.getElementById('fileInput');
         const terminal = document.getElementById('terminal');
+        const baudRate = document.getElementById('baudRate');
 
         function logMsg(msg) {
             terminal.textContent += msg + '\n';
@@ -104,12 +117,13 @@
                 logMsg("Requesting serial port...");
                 port = await navigator.serial.requestPort();
                 
-                logMsg("Opening port at 115200 baud...");
+                const selectedBaud = parseInt(baudRate.value);
+                logMsg(`Opening port at ${selectedBaud} baud...`);
                 transport = new Transport(port, true);
                 
                 const loaderOptions = {
                     transport,
-                    baudrate: 115200,
+                    baudrate: selectedBaud,
                     enableTracing: false,
                     terminal: {
                         clean() { terminal.textContent = ''; },
