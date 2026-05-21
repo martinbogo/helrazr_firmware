@@ -34,7 +34,7 @@ static const int GRAPH_H  = 90;
 static uint8_t history[GRAPH_H][NUM_STEPS];
 static int nextRow = 0;
 static uint32_t totalScans = 0;
-static bool isPaused = false;
+static int crosshairRank = -1;
 
 #if !HAS_OLED
 static int colorMode = 0; // 0=Classic, 1=Grayscale, 2=Ironbow, 3=Viridis, 4=Ocean, 5=Matrix, 6=Magma, 7=Super Bright
@@ -108,40 +108,27 @@ static uint16_t rssiToWaterfallColor(int rssi) {
 }
 
 void waterfall_short_press() {
-    isPaused = !isPaused;
-#if HAS_OLED
-    display_fill_rect_abs(112, 0, 16, 10, DISPLAY_BLACK);
-    if (isPaused) {
-        display_draw_text_small_abs(114, 0, DISPLAY_WHITE, "II");
-    } else {
-        // Redraw the original title text over the cleared area
-        // It's drawn with a transparent background, so it seamlessly patches the missing "Hz"
-        display_draw_text_abs(5, 0, DISPLAY_CYAN, "Waterfall 902-928MHz");
+    crosshairRank++;
+    if (crosshairRank >= 3) { // Cycle through top 3 peaks, then off
+        crosshairRank = -1;
     }
+
+#if HAS_OLED
+    // Clear old pause UI area if it was left dirty (not needed anymore, but safe)
+    display_fill_rect_abs(112, 0, 16, 10, DISPLAY_BLACK);
+    display_draw_text_abs(5, 0, DISPLAY_CYAN, "Waterfall 902-928MHz");
 #else
     display_fill_rect_abs(220, 5, 20, 20, DISPLAY_BLACK);
-    if (isPaused) {
-        display_draw_text_abs(220, 18, DISPLAY_WHITE, "||");
-    }
 #endif
     display_update_buffer();
 }
 
 void waterfall_double_press() {
-    bool wasPaused = isPaused;
-    isPaused = false; // Reset play state
 #if !HAS_OLED
     colorMode = (colorMode + 1) % 8;
     drawTftColorLegend();
-    if (wasPaused) {
-        display_fill_rect_abs(220, 5, 20, 20, DISPLAY_BLACK);
-    }
 #else
     invertOled = !invertOled;
-    if (wasPaused) {
-        display_fill_rect_abs(112, 0, 16, 10, DISPLAY_BLACK);
-        display_draw_text_abs(5, 0, DISPLAY_CYAN, "Waterfall 902-928MHz");
-    }
 #endif
 }
 
@@ -149,7 +136,7 @@ void waterfall_enter() {
     memset(history, 0, sizeof(history));
     nextRow = 0;
     totalScans = 0;
-    isPaused = false;
+    crosshairRank = -1;
 
     display_clear();
 #if HAS_OLED
@@ -170,11 +157,6 @@ void waterfall_enter() {
 }
 
 void waterfall_update() {
-    if (isPaused) {
-        // Just redraw the status
-        return;
-    }
-
     // Capture one row of data
     for (int i = 0; i < NUM_STEPS; i++) {
         float freq = FREQ_START + i * FREQ_STEP;
@@ -267,6 +249,73 @@ void waterfall_update() {
         }
     }
 #endif
+
+    if (crosshairRank >= 0) {
+        int colSums[NUM_STEPS] = {0};
+        long totalSum = 0;
+        for (int r = 0; r < GRAPH_H; r++) {
+            for (int i = 0; i < NUM_STEPS; i++) {
+                colSums[i] += history[r][i];
+                totalSum += history[r][i];
+            }
+        }
+        
+        int avgSum = totalSum / NUM_STEPS;
+        struct Peak { int col; int sum; };
+        Peak peaks[NUM_STEPS];
+        int numPeaks = 0;
+        
+        for (int i = 1; i < NUM_STEPS - 1; i++) {
+            if (colSums[i] > colSums[i-1] && colSums[i] >= colSums[i+1]) {
+                if (colSums[i] > avgSum + (GRAPH_H * 5)) { // Needs to be visibly above the noise floor
+                    peaks[numPeaks].col = i;
+                    peaks[numPeaks].sum = colSums[i];
+                    numPeaks++;
+                }
+            }
+        }
+        
+        // Sort descending by energy sum
+        for (int i = 1; i < numPeaks; i++) {
+            Peak k = peaks[i];
+            int j = i - 1;
+            while (j >= 0 && peaks[j].sum < k.sum) { peaks[j+1] = peaks[j]; j--; }
+            peaks[j+1] = k;
+        }
+
+        if (numPeaks > 0 && crosshairRank < numPeaks) {
+            int targetCol = peaks[crosshairRank].col;
+            float freq = FREQ_START + targetCol * FREQ_STEP;
+            
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.1f", freq);
+
+#if HAS_OLED
+            int x0 = GRAPH_X + (targetCol       * GRAPH_W) / NUM_STEPS;
+            int x1 = GRAPH_X + ((targetCol + 1) * GRAPH_W) / NUM_STEPS;
+            int cx = (x0 + x1) / 2;
+
+            for (int y = GRAPH_Y; y < GRAPH_Y + GRAPH_H; y += 2) {
+                display_fill_rect_abs(cx, y, 1, 1, invertOled ? DISPLAY_WHITE : DISPLAY_BLACK);
+            }
+            // Box fixed at top right to avoid overwriting peak directly
+            display_fill_rect_abs(94, 14, 34, 10, invertOled ? DISPLAY_WHITE : DISPLAY_BLACK);
+            display_draw_text_small_abs(96, 22, invertOled ? DISPLAY_BLACK : DISPLAY_WHITE, buf);
+#else
+            // High-speed SPI burst draws rows directly on TFT, so we must calculate cx for the whole screen
+            int cx = (targetCol * GRAPH_W) / NUM_STEPS + GRAPH_X + (GRAPH_W / NUM_STEPS / 2);
+
+            display_fill_rect_abs(cx, GRAPH_Y, 1, GRAPH_H, 0xF81F); // Magenta line
+            int boxX = cx + 2;
+            if (boxX + 48 > 240) boxX = cx - 50; 
+            display_fill_rect_abs(boxX, GRAPH_Y + 5, 48, 14, DISPLAY_BLACK);
+            display_draw_text_small_abs(boxX + 4, GRAPH_Y + 16, 0xF81F, buf);
+#endif
+        } else {
+            // Rank exceeds available peaks, or no peaks found
+            crosshairRank = -1;
+        }
+    }
 
     display_update_buffer();
 }
