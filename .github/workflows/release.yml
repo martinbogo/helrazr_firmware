@@ -1,0 +1,72 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - '*' # Trigger on any tag
+
+permissions:
+  contents: write # Needed to create releases and upload assets
+
+jobs:
+  build:
+    name: Build Firmware and Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive # Fetch submodules if any
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build T114 Firmware
+        run: pio run -e t114
+
+      - name: Build Heltec V3 Firmware
+        run: pio run -e heltec_v3
+
+      - name: Prepare Artifacts
+        run: |
+          mkdir release-artifacts
+          cp .pio/build/t114/firmware.uf2 release-artifacts/helrazr-t114.uf2
+          cp .pio/build/t114/firmware.zip release-artifacts/helrazr-t114-nrf-dfu.zip
+          cp .pio/build/heltec_v3/firmware.factory.bin release-artifacts/helrazr-heltec_v3.factory.bin
+          cp .pio/build/heltec_v3/firmware.bin release-artifacts/helrazr-heltec_v3-app-only.bin
+
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          body: |
+            ### 🌐 Web Flasher Instructions
+            You can install these firmware files directly from your browser using the [Meshtastic Web Flasher](https://flasher.meshtastic.org/).
+            1. Connect your device via USB.
+            2. Go to [flasher.meshtastic.org](https://flasher.meshtastic.org/) (requires a WebSerial supported browser like Chrome or Edge).
+            3. For **Heltec V3**, upload the `helrazr-heltec_v3.factory.bin` file.
+            4. For **Heltec T114**, double-click the reset button to enter bootloader mode, then select the `helrazr-t114.uf2` file.
+            5. Follow the prompts to complete the flashing process.
+
+            ---
+
+            ### 📦 Firmware Artifacts Guide
+
+            **Heltec T114 (nRF52)**
+            * **`helrazr-t114.uf2`**: For USB drag-and-drop flashing (by double-clicking the reset button) or the Web Flasher.
+            * **`helrazr-t114-nrf-dfu.zip`**: DFU package for BLE Over-The-Air (OTA) flashing from a mobile app (like nRF Connect) or custom scripts.
+
+            **Heltec V3 (ESP32)**
+            * **`helrazr-heltec_v3.factory.bin`**: The complete image (includes bootloader, partitions, and application). Used for the Web Flasher or `esptool.py` (offset `0x0`).
+            * **`helrazr-heltec_v3-app-only.bin`**: Application-only binary, typically used for local, partial OTA updates.
+
+            ---
+
+          files: release-artifacts/*
