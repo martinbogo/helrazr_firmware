@@ -220,24 +220,34 @@ void waterfall_update() {
 #if HAS_OLED
             int level = getOledLevel(rssi);
             
-            if (level == 0) {
-                display_fill_rect_abs(x0, y, bw, 1, invertOled ? DISPLAY_WHITE : DISPLAY_BLACK);
-            } else if (level == 4) {
-                display_fill_rect_abs(x0, y, bw, 1, invertOled ? DISPLAY_BLACK : DISPLAY_WHITE);
+            if (invertOled) {
+                // Inverted mode introduces OLED blooming (light bleed) if we dither.
+                // To guarantee signals look "fully black", we draw noise as solid white, 
+                // and ANY level of signal as a pure black silhouette.
+                if (level == 0) {
+                    display_fill_rect_abs(x0, y, bw, 1, DISPLAY_WHITE);
+                } else {
+                    display_fill_rect_abs(x0, y, bw, 1, DISPLAY_BLACK);
+                }
             } else {
-                // 2x2 Bayer ordered dither matrix (perfectly maps to our 5 OLED levels)
-                static const uint8_t bayer2x2[2][2] = {
-                    { 0, 2 },
-                    { 3, 1 }
-                };
-                for (int px = x0; px < x1; px++) {
-                    bool fill_white = (bayer2x2[scanIndex % 2][px % 2] < level);
-                    if (invertOled) fill_white = !fill_white;
-                    
-                    if (fill_white) {
-                        display_fill_rect_abs(px, y, 1, 1, DISPLAY_WHITE);
-                    } else {
-                        display_fill_rect_abs(px, y, 1, 1, DISPLAY_BLACK);
+                if (level == 0) {
+                    display_fill_rect_abs(x0, y, bw, 1, DISPLAY_BLACK);
+                } else if (level == 4) {
+                    display_fill_rect_abs(x0, y, bw, 1, DISPLAY_WHITE);
+                } else {
+                    // 2x2 Bayer ordered dither matrix (perfectly maps to our 5 OLED levels)
+                    static const uint8_t bayer2x2[2][2] = {
+                        { 0, 2 },
+                        { 3, 1 }
+                    };
+                    for (int px = x0; px < x1; px++) {
+                        bool fill_white = (bayer2x2[scanIndex % 2][px % 2] < level);
+                        
+                        if (fill_white) {
+                            display_fill_rect_abs(px, y, 1, 1, DISPLAY_WHITE);
+                        } else {
+                            display_fill_rect_abs(px, y, 1, 1, DISPLAY_BLACK);
+                        }
                     }
                 }
             }
