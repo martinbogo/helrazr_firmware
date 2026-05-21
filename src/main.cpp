@@ -196,6 +196,17 @@ void loop() {
         return;
     }
 
+    if (currentMode == MODE_DECODER) {
+        if (button_double_pressed()) {
+            decoder_double_press();
+            return;
+        }
+        if (button_short_pressed()) {
+            decoder_short_press();
+            return;
+        }
+    }
+
     switch (currentMode) {
         case MODE_STATUS: {
             if (now - lastStatusUpdate >= 1000) {

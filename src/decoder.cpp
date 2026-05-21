@@ -17,18 +17,28 @@ struct LogEntry {
     uint8_t  hopLimit;
     float    rssi, snr;
     bool     hasText;
-    char     text[48];
+    char     text[120];
     uint32_t timeMs;
 };
 
-static const int LOG_SIZE = 3;
+static const int LOG_SIZE = 12;
 static LogEntry  log_buf[LOG_SIZE];
 static int       logHead = 0;
 static int       totalPkts = 0;
+static int       viewOffset = 0;
+static bool      detailMode = false;
+
+static void drawLog();
 
 static void addLog(const LogEntry& e) {
     log_buf[logHead % LOG_SIZE] = e;
     logHead++; totalPkts++;
+    
+    // Shift our viewed packet if we are looking back in time
+    if (viewOffset > 0) {
+        viewOffset++;
+        if (viewOffset >= LOG_SIZE) viewOffset = 0; // If pushed out of buffer, jump to live mode
+    }
 }
 
 static bool tryDecodeText(const uint8_t* payload, int len, char* out, int outlen) {
@@ -55,11 +65,30 @@ static bool tryDecodeText(const uint8_t* payload, int len, char* out, int outlen
     return false;
 }
 
+void decoder_short_press() {
+    if (totalPkts == 0) return;
+    viewOffset++;
+    int maxOffset = (totalPkts < LOG_SIZE) ? totalPkts : LOG_SIZE;
+    if (viewOffset >= maxOffset) {
+        viewOffset = 0; // Wrap around to Live view (newest)
+    }
+    drawLog();
+}
+
+void decoder_double_press() {
+    if (totalPkts == 0) return;
+    detailMode = !detailMode;
+    drawLog();
+}
+
 static void drawLog() {
+    display_clear();
 #if HAS_OLED
-    display_fill_rect_abs(0, 10, 128, 54, DISPLAY_BLACK);
+    display_draw_text_abs(10, 0, DISPLAY_CYAN, "Meshtastic Decoder");
+    display_draw_hline(0, 10, 128, DISPLAY_GRAY);
 #else
-    display_fill_rect_abs(0, 18, 240, 117, DISPLAY_BLACK);
+    display_draw_text_abs(30, 15, DISPLAY_CYAN, "Meshtastic Decoder");
+    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
 #endif
 
     if (totalPkts == 0) {
@@ -68,78 +97,80 @@ static void drawLog() {
 #else
         display_draw_text_abs(20, 75, DISPLAY_CYAN, "Waiting for packets...");
 #endif
+        display_update_buffer();
         return;
     }
 
-    int recent = (logHead - 1 + LOG_SIZE) % LOG_SIZE;
-    LogEntry& e = log_buf[recent];
-    char line[40];
+    int idx = (logHead - 1 - viewOffset + LOG_SIZE * 2) % LOG_SIZE;
+    LogEntry& e = log_buf[idx];
+    char line[64];
 
-    // Most recent packet
+    if (detailMode) {
+        // Deep Dive Mode: Show Full Text Payload
+        int maxPkt = totalPkts < LOG_SIZE ? totalPkts : LOG_SIZE;
+        uint32_t age = (millis() - e.timeMs) / 1000;
 #if HAS_OLED
-    snprintf(line, sizeof(line), "Frm %08lX", e.srcNode);
-    display_draw_text_small_abs(0, 12, DISPLAY_GREEN, line);
+        snprintf(line, sizeof(line), "Msg %d/%d (%lus)", viewOffset + 1, maxPkt, age);
+        display_draw_text_small_abs(0, 14, DISPLAY_YELLOW, line);
 
-    snprintf(line, sizeof(line), "R:%d S:%d", (int)e.rssi, (int)e.snr);
-    display_draw_text_small_abs(0, 21, DISPLAY_YELLOW, line);
-
-    if (e.hasText) {
-        display_draw_text_small_abs(0, 30, DISPLAY_CYAN, "MSG:");
-        char wrap[24]; strncpy(wrap, e.text, 23); wrap[23] = '\0';
-        display_draw_text_small_abs(24, 30, DISPLAY_WHITE, wrap);
-    }
-
-    display_draw_hline(0, 39, 128, DISPLAY_GRAY);
-    int shown = totalPkts < 2 ? totalPkts : 2;
-    for (int i = 0; i < shown; i++) {
-        int idx = (logHead - 1 - i + LOG_SIZE * 2) % LOG_SIZE;
-        LogEntry& le = log_buf[idx];
-        uint32_t age = (millis() - le.timeMs) / 1000;
-        snprintf(line, sizeof(line), "%08lX %lus", le.srcNode, age);
-        display_draw_text_small_abs(0, 40 + i * 8, i == 0 ? DISPLAY_WHITE : (uint16_t)DISPLAY_CYAN, line);
-    }
-
-    char foot[32];
-    snprintf(foot, sizeof(foot), "LF Pkts: %d", totalPkts);
-    display_draw_text_small_abs(70, 56, DISPLAY_CYAN, foot);
-#else
-    snprintf(line, sizeof(line), "From %08lX -> %08lX", e.srcNode, e.destNode);
-    display_draw_text_abs(0, 33, DISPLAY_GREEN, line);
-
-    snprintf(line, sizeof(line), "Hop:%d  RSSI:%d  SNR:%d",
-             e.hopLimit, (int)e.rssi, (int)e.snr);
-    display_draw_text_abs(0, 51, DISPLAY_YELLOW, line);
-
-    if (e.hasText) {
-        display_draw_text_small_abs(0, 63, DISPLAY_CYAN, "MSG:");
-        char wrap[30]; strncpy(wrap, e.text, 29); wrap[29] = '\0';
-        display_draw_text_small_abs(30, 63, DISPLAY_WHITE, wrap);
-        if (strlen(e.text) > 29) {
-            strncpy(wrap, e.text + 29, 29); wrap[29] = '\0';
-            display_draw_text_small_abs(0, 72, DISPLAY_WHITE, wrap);
+        if (e.hasText) {
+            display_draw_text_small_abs(0, 24, DISPLAY_WHITE, e.text);
+        } else {
+            display_draw_text_small_abs(0, 24, DISPLAY_GRAY, "<No Text Payload>");
         }
-    }
+#else
+        snprintf(line, sizeof(line), "Message %d of %d  (-%lus)", viewOffset + 1, maxPkt, age);
+        display_draw_text_abs(0, 30, DISPLAY_YELLOW, line);
 
-    // Log entries
-    display_draw_hline(0, 80, 240, DISPLAY_GRAY);
-    int shown = totalPkts < 3 ? totalPkts : 3;
-    for (int i = 0; i < shown; i++) {
-        int idx = (logHead - 1 - i + LOG_SIZE * 2) % LOG_SIZE;
-        LogEntry& le = log_buf[idx];
-        uint32_t age = (millis() - le.timeMs) / 1000;
-        snprintf(line, sizeof(line), "%08lX->%08lX %lus", le.srcNode, le.destNode, age);
-        display_draw_text_small_abs(0, 89 + i * 12, i == 0 ? DISPLAY_WHITE : (uint16_t)DISPLAY_CYAN, line);
-    }
-
-    display_fill_rect_abs(0, 122, 240, 13, DISPLAY_BLACK);
-    char foot[32];
-    snprintf(foot, sizeof(foot), "LongFast  Pkts: %d", totalPkts);
-    display_draw_text_small_abs(0, 133, DISPLAY_CYAN, foot);
+        if (e.hasText) {
+            display_draw_text_small_abs(0, 48, DISPLAY_WHITE, e.text);
+        } else {
+            display_draw_text_small_abs(0, 48, DISPLAY_GRAY, "<No Text Payload>");
+        }
 #endif
+    } else {
+        // Ticker / Metadata mode
+        int maxPkt = totalPkts < LOG_SIZE ? totalPkts : LOG_SIZE;
+        uint32_t age = (millis() - e.timeMs) / 1000;
+#if HAS_OLED
+        snprintf(line, sizeof(line), "Pkt %d/%d (%lus) %s", viewOffset + 1, maxPkt, age, (viewOffset == 0) ? "[LIVE]" : "");
+        display_draw_text_small_abs(0, 14, DISPLAY_GREEN, line);
+
+        snprintf(line, sizeof(line), "Frm: %08lX", e.srcNode);
+        display_draw_text_small_abs(0, 23, DISPLAY_WHITE, line);
+        
+        snprintf(line, sizeof(line), "To:  %08lX", e.destNode);
+        display_draw_text_small_abs(0, 32, DISPLAY_WHITE, line);
+
+        snprintf(line, sizeof(line), "R:%d S:%d H:%d", (int)e.rssi, (int)e.snr, e.hopLimit);
+        display_draw_text_small_abs(0, 41, DISPLAY_YELLOW, line);
+
+        snprintf(line, sizeof(line), "Text:%s (DblClk)", e.hasText ? "Yes" : "No");
+        display_draw_text_small_abs(0, 50, DISPLAY_CYAN, line);
+#else
+        snprintf(line, sizeof(line), "Packet %d / %d  (-%lus)  %s", viewOffset + 1, maxPkt, age, (viewOffset == 0) ? "[LIVE UPDATE]" : "[PAUSED]");
+        display_draw_text_abs(0, 32, DISPLAY_GREEN, line);
+
+        snprintf(line, sizeof(line), "From: %08lX -> %08lX", e.srcNode, e.destNode);
+        display_draw_text_abs(0, 55, DISPLAY_WHITE, line);
+
+        snprintf(line, sizeof(line), "Hop:%d   RSSI:%d   SNR:%d", e.hopLimit, (int)e.rssi, (int)e.snr);
+        display_draw_text_abs(0, 78, DISPLAY_YELLOW, line);
+
+        snprintf(line, sizeof(line), "Payload: %s", e.hasText ? "YES >> [Dbl-Click]" : "No");
+        display_draw_text_abs(0, 101, DISPLAY_CYAN, line);
+        
+        display_draw_text_small_abs(0, 125, DISPLAY_GRAY, "Single-Clk: Paging  |  Double-Clk: Read Message");
+#endif
+    }
+
+    display_update_buffer();
 }
 
 void decoder_enter() {
     logHead = 0; totalPkts = 0;
+    viewOffset = 0;
+    detailMode = false;
     memset(log_buf, 0, sizeof(log_buf));
     lora_apply_channel(0);
     lora_start_listen();
