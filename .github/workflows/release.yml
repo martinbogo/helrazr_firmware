@@ -1,0 +1,49 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on tags starting with v (e.g., v1.0.0)
+
+permissions:
+  contents: write # Needed to create releases and upload assets
+
+jobs:
+  build:
+    name: Build Firmware and Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive # Fetch submodules if any
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build T114 Firmware
+        run: pio run -e t114
+
+      - name: Build Heltec V3 Firmware
+        run: pio run -e heltec_v3
+
+      - name: Prepare Artifacts
+        run: |
+          mkdir release-artifacts
+          cp .pio/build/t114/firmware.uf2 release-artifacts/helrazr-t114.uf2
+          cp .pio/build/t114/firmware.zip release-artifacts/helrazr-t114-nrf-dfu.zip
+          cp .pio/build/heltec_v3/firmware.factory.bin release-artifacts/helrazr-heltec_v3.factory.bin
+          cp .pio/build/heltec_v3/firmware.bin release-artifacts/helrazr-heltec_v3-app-only.bin
+
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: release-artifacts/*
