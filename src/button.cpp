@@ -56,10 +56,6 @@ static bool powerFired    = false;
 
 void button_init() {
     pinMode(PIN_BUTTON, INPUT_PULLUP);
-    // Wait briefly for DTR/RTS lines to stabilize from any serial terminal connections
-    delay(50); 
-    // Ignore any edges that occurred before this
-    isrLastEdge = millis();
     attachInterrupt(digitalPinToInterrupt(PIN_BUTTON), button_isr, CHANGE);
 }
 
@@ -70,17 +66,6 @@ void button_update() {
     eventPowerOff = false;
 
     uint32_t now = millis();
-
-    // Ignore button input for the first 1000ms after boot to prevent 
-    // stray DTR/RTS serial flutters (from web flashers) simulating clicks or long presses.
-    if (now < 1000) {
-        isrClickCount = 0;
-        isrPressed = false;
-        longFired = false;
-        powerFired = false;
-        clickCount = 0;
-        return;
-    }
 
     // Consume clicks accumulated by the ISR
     while (isrClickCount > 0) {

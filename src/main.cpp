@@ -101,8 +101,19 @@ static void enter_mode(AppMode m) {
 }
 
 void setup() {
+    Serial.begin(115200);
+    
+    // Wait for USB CDC terminal
+    uint32_t t = millis();
+    while(!Serial && (millis() - t) < 3000) {
+        delay(10);
+    }
+    delay(500);
+    
+    Serial.println("--- BOOT SEQUENCE START ---");
+    
     // Must be first -- may not return if woken from standby and button released early
-    power_init();
+    // power_init();
 
     pinMode(PIN_LED, OUTPUT);
     digitalWrite(PIN_LED, LED_STATE_OFF);
