@@ -185,12 +185,7 @@
                 };
 
                 await esploader.writeFlash(flashOptions);
-                logMsg("\nFlash complete! Rebooting device...");
-                if (port && port.setSignals) {
-                    await port.setSignals({ dataTerminalReady: true, requestToSend: false });
-                    await new Promise(r => setTimeout(r, 100));
-                    await port.setSignals({ dataTerminalReady: false, requestToSend: false });
-                }
+                logMsg("\nFlash complete! Please manually press the RESET button on your device.");
                 flashBtn.textContent = "Flash Complete";
                 flashBtn.classList.replace("bg-orange-600", "bg-green-600");
             } catch (err) {
