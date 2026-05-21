@@ -85,12 +85,12 @@ void noise_update() {
     }
 
     char stat[32];
-    snprintf(stat, sizeof(stat), "Cur: %d dBm", (int)rssi);
 #if HAS_OLED
+    snprintf(stat, sizeof(stat), "Cur: %d dBm", (int)rssi);
     display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 2, GRAPH_W, 10, DISPLAY_BLACK);
     display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 4, DISPLAY_WHITE, stat);
 #else
-    display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 15, GRAPH_W, 12, DISPLAY_BLACK);
+    snprintf(stat, sizeof(stat), "Cur: %d dBm        ", (int)rssi);
     display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 17, DISPLAY_WHITE, stat);
 #endif
     display_update_buffer();

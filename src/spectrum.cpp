@@ -121,8 +121,7 @@ void spectrum_update() {
     display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 2, GRAPH_W, 10, DISPLAY_BLACK);
     display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 4, DISPLAY_WHITE, peak);
 #else
-    snprintf(peak, sizeof(peak), "%sPeak:%.1fMHz %ddBm  ", peakHoldActive ? "[H] " : "", peakFreq, (int)peakRSSI);
-    display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 15, GRAPH_W, 12, DISPLAY_BLACK);
+    snprintf(peak, sizeof(peak), "%sPeak:%.1fMHz %ddBm         ", peakHoldActive ? "[H] " : "", peakFreq, (int)peakRSSI);
     display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 17, DISPLAY_WHITE, peak);
 #endif
 
