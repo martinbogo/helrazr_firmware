@@ -29,6 +29,37 @@ static bool isPaused = false;
 
 #if !HAS_OLED
 static int colorMode = 0; // 0=Classic, 1=Grayscale, 2=Ironbow, 3=Viridis, 4=Ocean, 5=Matrix, 6=Magma, 7=Super Bright
+
+// Helper for RGB565 encoding
+#ifndef C565
+#define C565(r, g, b) ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3))
+#endif
+
+static const uint16_t PALLETES[8][8] = {
+    // 0: Classic
+    { 0x0000, 0x0017, 0x001F, 0x07FF, 0x07E0, 0xFFE0, 0xFD20, 0xF800 },
+    // 1: Grayscale
+    { 0x0000, C565(36,36,36), C565(73,73,73), C565(109,109,109), C565(146,146,146), C565(182,182,182), C565(219,219,219), C565(255,255,255) },
+    // 2: Ironbow
+    { 0x0000, C565(20,0,40), C565(80,0,80), C565(150,0,0), C565(255,100,0), C565(255,180,0), C565(255,255,0), C565(255,255,255) },
+    // 3: Viridis
+    { 0x0000, C565(68,1,84), C565(72,40,120), C565(49,104,142), C565(38,130,142), C565(53,183,121), C565(143,215,68), C565(253,231,37) },
+    // 4: Ocean
+    { 0x0000, C565(0,0,40), C565(0,0,80), C565(0,50,150), C565(0,100,200), C565(0,150,255), C565(0,255,255), C565(255,255,255) },
+    // 5: Matrix Green
+    { 0x0000, C565(0,20,0), C565(0,50,0), C565(0,90,0), C565(0,140,0), C565(0,200,0), C565(0,255,0), C565(150,255,150) },
+    // 6: Magma
+    { 0x0000, C565(20,10,30), C565(50,10,60), C565(100,10,80), C565(180,30,80), C565(230,80,90), C565(250,150,100), C565(255,255,255) },
+    // 7: Super Bright
+    { 0x0000, C565(0,50,255), C565(255,0,0), C565(255,128,0), C565(255,255,0), C565(255,255,128), C565(255,255,255), C565(255,255,255) }
+};
+
+static void drawTftColorLegend() {
+    // Draw 8 blocks of 6 pixels wide by 10 pixels high at top right (x=165, y=5)
+    for (int i = 0; i < 8; i++) {
+        display_fill_rect_abs(165 + i * 6, 5, 6, 10, PALLETES[colorMode][i]);
+    }
+}
 #else
 static bool invertOled = false;
 #endif
@@ -44,31 +75,14 @@ static int getOledLevel(int rssi) {
 #endif
 
 // Helper for RGB565 encoding
+#ifndef C565
 #define C565(r, g, b) ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3))
+#endif
 
 static uint16_t rssiToWaterfallColor(int rssi) {
 #if HAS_OLED
     return DISPLAY_BLACK; // Replaced by per-pixel logic below
 #else
-    static const uint16_t PALLETES[8][8] = {
-        // 0: Classic
-        { 0x0000, 0x0017, 0x001F, 0x07FF, 0x07E0, 0xFFE0, 0xFD20, 0xF800 },
-        // 1: Grayscale
-        { 0x0000, C565(36,36,36), C565(73,73,73), C565(109,109,109), C565(146,146,146), C565(182,182,182), C565(219,219,219), C565(255,255,255) },
-        // 2: Ironbow
-        { 0x0000, C565(20,0,40), C565(80,0,80), C565(150,0,0), C565(255,100,0), C565(255,180,0), C565(255,255,0), C565(255,255,255) },
-        // 3: Viridis
-        { 0x0000, C565(68,1,84), C565(72,40,120), C565(49,104,142), C565(38,130,142), C565(53,183,121), C565(143,215,68), C565(253,231,37) },
-        // 4: Ocean
-        { 0x0000, C565(0,0,40), C565(0,0,80), C565(0,50,150), C565(0,100,200), C565(0,150,255), C565(0,255,255), C565(255,255,255) },
-        // 5: Matrix Green
-        { 0x0000, C565(0,20,0), C565(0,50,0), C565(0,90,0), C565(0,140,0), C565(0,200,0), C565(0,255,0), C565(150,255,150) },
-        // 6: Magma
-        { 0x0000, C565(20,10,30), C565(50,10,60), C565(100,10,80), C565(180,30,80), C565(230,80,90), C565(250,150,100), C565(255,255,255) },
-        // 7: Super Bright
-        { 0x0000, C565(0,50,255), C565(255,0,0), C565(255,128,0), C565(255,255,0), C565(255,255,128), C565(255,255,255), C565(255,255,255) }
-    };
-
     int level = 0;
     if (rssi >= -40) level = 7;
     else if (rssi >= -50) level = 6;
@@ -107,6 +121,7 @@ void waterfall_double_press() {
     isPaused = false; // Reset play state
 #if !HAS_OLED
     colorMode = (colorMode + 1) % 8;
+    drawTftColorLegend();
     if (wasPaused) {
         display_fill_rect_abs(220, 5, 20, 20, DISPLAY_BLACK);
     }
@@ -133,6 +148,7 @@ void waterfall_enter() {
     display_draw_text_tiny_abs(111, GRAPH_Y + GRAPH_H + 3, DISPLAY_CYAN, "928");
 #else
     display_draw_text_abs(30, 15, DISPLAY_CYAN, "Waterfall 902-928 MHz");
+    drawTftColorLegend();
     display_draw_text_small_abs(0,   GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "902");
     display_draw_text_small_abs(54,  GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "909");
     display_draw_text_small_abs(113, GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "916");
