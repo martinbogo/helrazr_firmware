@@ -46,4 +46,17 @@ jobs:
         with:
           draft: true
           generate_release_notes: true
+          body: |
+            ### 📦 Firmware Artifacts Guide
+
+            **Heltec T114 (nRF52)**
+            * **`helrazr-t114.uf2`**: For initial USB flashing. Double-click the device's reset button to mount the UF2 drive, then drag-and-drop this file over, or flash via the Web Flasher.
+            * **`helrazr-t114-nrf-dfu.zip`**: DFU package for BLE Over-The-Air (OTA) flashing from a mobile app (like nRF Connect) or custom scripts.
+
+            **Heltec V3 (ESP32)**
+            * **`helrazr-heltec_v3.factory.bin`**: The complete image (includes bootloader, partitions, and application). Flash this via the Web Flasher or `esptool.py` at offset `0x0`.
+            * **`helrazr-heltec_v3-app-only.bin`**: Application-only binary, typically used for local, partial OTA updates.
+
+            ---
+
           files: release-artifacts/*
