@@ -160,7 +160,7 @@
                     }
                 };
 
-                await esploader.write_flash(flashOptions);
+                await esploader.writeFlash(flashOptions);
                 logMsg("\nFlash complete! Please manually press the RESET button on your device.");
                 flashBtn.textContent = "Flash Complete";
                 flashBtn.classList.replace("bg-orange-600", "bg-green-600");
