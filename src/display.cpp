@@ -170,9 +170,11 @@ void display_update(float lat, float lon, int sats, bool gps_fix,
     display_update_buffer();
 }
 
-void display_clear() {
+void display_clear(bool force_tft) {
 #if HAS_TFT
-    tft.fillScreen(DISPLAY_BLACK);
+    if (force_tft) {
+        tft.fillScreen(DISPLAY_BLACK);
+    }
 #elif HAS_OLED
     tft.clearDisplay();
 #endif

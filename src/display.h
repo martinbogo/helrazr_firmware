@@ -49,7 +49,7 @@ void display_update(float lat, float lon, int sats, bool gps_fix,
                     bool lora_listening, float bat_voltage, uint32_t uptime_s);
 
 // General drawing primitives (for modes)
-void display_clear();
+void display_clear(bool force_tft = false);
 void display_update_buffer(); // for OLED page updates
 void display_draw_text(int x, int y, uint16_t color, const char* text);
 void display_fill_rect(int x, int y, int w, int h, uint16_t color);

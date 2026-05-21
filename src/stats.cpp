@@ -70,7 +70,9 @@ static int packetsPerMinute() {
 }
 
 static void drawStats() {
-    display_clear();
+#if HAS_OLED
+    display_clear(); // clear buffer
+#endif
 #if HAS_OLED
     display_draw_text_abs(20, 0, DISPLAY_CYAN, statsPage == 0 ? "Stats: Activity" : "Stats: Top Nodes");
     display_draw_hline(0, 10, 128, DISPLAY_GRAY);
@@ -92,11 +94,14 @@ static void drawStats() {
         static const int GX = 0, GY = 25, GW = 128, GH = 25;
 #else
         snprintf(buf, sizeof(buf), "Total: %lu   Last min: %d", totalPackets, ppm);
+        display_fill_rect_abs(0, 16, 240, 18, DISPLAY_BLACK);
         display_draw_text_abs(0, 32, DISPLAY_WHITE, buf);
 
         static const int GX = 0, GY = 55, GW = 240, GH = 60;
 #endif
+#if HAS_OLED
         display_fill_rect_abs(GX, GY, GW, GH, DISPLAY_BLACK);
+#endif
         display_draw_hline(GX, GY + GH, GW, DISPLAY_GRAY);
 
         // Find max bucket for scaling
@@ -168,6 +173,7 @@ static void drawStats() {
 
 void stats_short_press() {
     statsPage = (statsPage + 1) % 2;
+    display_clear(true);
     drawStats();
 }
 

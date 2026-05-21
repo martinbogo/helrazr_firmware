@@ -63,6 +63,7 @@ const char* mode_name(AppMode m) {
 
 static void enter_mode(AppMode m) {
     currentMode = m;
+    display_clear(true);
     switch (m) {
         case MODE_MENU:      menu_init(); menu_draw(); break;
         case MODE_STATUS:    lora_start_listen(); break;

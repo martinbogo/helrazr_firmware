@@ -42,7 +42,9 @@ void menu_update() {
 }
 
 void menu_draw() {
-    display_clear();
+#if HAS_OLED
+    display_clear(); // clear buffer
+#endif
 #if HAS_OLED
     display_draw_text_abs(25, 0, DISPLAY_CYAN, "Select Mode");
     display_draw_hline(0, 10, 128, DISPLAY_GRAY);
