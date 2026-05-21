@@ -105,7 +105,7 @@ void setup() {
     power_init();
 
     pinMode(PIN_LED, OUTPUT);
-    digitalWrite(PIN_LED, HIGH);
+    digitalWrite(PIN_LED, LED_STATE_OFF);
 
     shell_init();
     button_init();
@@ -121,8 +121,8 @@ void setup() {
     lora_init();
 
     for (int i = 0; i < 3; i++) {
-        digitalWrite(PIN_LED, LOW);  delay(100);
-        digitalWrite(PIN_LED, HIGH); delay(100);
+        digitalWrite(PIN_LED, LED_STATE_ON);  delay(100);
+        digitalWrite(PIN_LED, LED_STATE_OFF); delay(100);
     }
 
     enter_mode(MODE_MENU);

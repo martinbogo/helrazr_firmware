@@ -23,7 +23,7 @@ static const uint32_t PULSE_PERIOD = 1000;  // no-fix red pulse period
 
 void neopixel_init() {
     pixels.begin();
-    pixels.setBrightness(40);  // 0-255, keep dim to save power
+    pixels.setBrightness(20);  // 0-255, keep dim to save power (half brightness)
     pixels.clear();
     pixels.show();
 }

@@ -44,6 +44,8 @@
 
 // --- LED & Button ---
 #define PIN_LED           35  // P1.03  (active LOW)
+#define LED_STATE_ON      LOW
+#define LED_STATE_OFF     HIGH
 #define PIN_BUTTON        42  // P1.10
 
 #elif defined(HELTEC_V3)
@@ -69,6 +71,8 @@
 
 // --- LED & Button ---
 #define PIN_LED           35  // onboard white LED
+#define LED_STATE_ON      HIGH
+#define LED_STATE_OFF     LOW
 #define PIN_BUTTON        0   // PRG button
 
 // --- No GPS ---

@@ -138,10 +138,10 @@ static void process_line(char* line) {
         display_off();
         Serial.println("Display off");
     } else if (strcmp(line, "led on") == 0) {
-        digitalWrite(PIN_LED, LOW);  // active low
+        digitalWrite(PIN_LED, LED_STATE_ON);
         Serial.println("LED on");
     } else if (strcmp(line, "led off") == 0) {
-        digitalWrite(PIN_LED, HIGH);
+        digitalWrite(PIN_LED, LED_STATE_OFF);
         Serial.println("LED off");
     } else if (strcmp(line, "bat") == 0) {
         Serial.print("Battery: "); Serial.print(read_battery(), 2); Serial.println(" V");
