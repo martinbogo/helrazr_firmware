@@ -20,7 +20,7 @@ static const char* LABELS[] = {
     "OTA Update",
 };
 
-void menu_init() { selected = 1; }
+void menu_init() { /* retained state: selected is not reset */ }
 
 void menu_update() {
     if (button_short_pressed()) {
