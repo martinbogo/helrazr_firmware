@@ -65,9 +65,8 @@ async def run(zip_path):
         await c.start_notify(CTRL, d.cb)
         await asyncio.sleep(0.5)
         
-        prn_target = 10
-        print(f"Setting PRN to {prn_target}")
-        await d.send_cmd(struct.pack("<BH", 0x08, prn_target))
+        print("Setting PRN to 0 for Init Packet")
+        await d.send_cmd(struct.pack("<BH", 0x08, 0))
 
         print("Start DFU App")
         await d.send_cmd(struct.pack("<BB", 0x01, 0x04))
@@ -82,6 +81,11 @@ async def run(zip_path):
             await asyncio.sleep(0.01)
         await d.send_cmd(struct.pack("<BB", 0x02, 0x01))
         await d.expect(0x02)
+
+        prn_target = 2
+        print(f"Setting PRN to {prn_target} for Flash")
+        d.prn_event.clear()
+        await d.send_cmd(struct.pack("<BH", 0x08, prn_target))
 
         print("Flashing BIN with PRN synchronization...")
         await d.send_cmd(struct.pack("<B", 0x03))
