@@ -18,7 +18,11 @@ static int linepos = 0;
 
 static float read_battery() {
     pinMode(PIN_BAT_ADC_EN, OUTPUT);
+#if defined(HELTEC_V3)
+    digitalWrite(PIN_BAT_ADC_EN, LOW);
+#else
     digitalWrite(PIN_BAT_ADC_EN, HIGH);
+#endif
     delay(5);
 #if defined(HELTEC_V3)
     float voltage = (analogReadMilliVolts(PIN_BAT_ADC) / 1000.0f) * BAT_ADC_MULTIPLIER;
@@ -26,7 +30,11 @@ static float read_battery() {
     int raw = analogRead(PIN_BAT_ADC);
     float voltage = (raw / 1024.0f) * 3.6f * BAT_ADC_MULTIPLIER;
 #endif
+#if defined(HELTEC_V3)
+    digitalWrite(PIN_BAT_ADC_EN, HIGH);
+#else
     digitalWrite(PIN_BAT_ADC_EN, LOW);
+#endif
     return voltage;
 }
 
