@@ -65,7 +65,7 @@ async def run(zip_path):
         await c.start_notify(CTRL, d.cb)
         await asyncio.sleep(0.5)
         
-        prn_target = 2
+        prn_target = 10
         print(f"Setting PRN to {prn_target}")
         await d.send_cmd(struct.pack("<BH", 0x08, prn_target))
 
@@ -96,6 +96,11 @@ async def run(zip_path):
                 d.prn_event.clear()
                 
             await c.write_gatt_char(PKT, chunk, response=False)
+            
+            # CRITICAL FIX: macOS CoreBluetooth silently drops WWR packets 
+            # if we submit them faster than the event loop / connection interval 
+            # can flush them. A tiny sleep completely guarantees reliability.
+            await asyncio.sleep(0.005)
             
             bytes_sent += len(chunk)
             packets_sent += 1
