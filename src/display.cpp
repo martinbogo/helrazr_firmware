@@ -238,6 +238,10 @@ void display_draw_hline(int x, int y, int w, uint16_t color) {
     tft.drawFastHLine(x, y, w, color);
 }
 
+void display_draw_vline(int x, int y, int h, uint16_t color) {
+    tft.drawFastVLine(x, y, h, color);
+}
+
 void display_draw_line(int x0, int y0, int x1, int y1, uint16_t color) {
     tft.drawLine(x0, y0, x1, y1, color);
 }

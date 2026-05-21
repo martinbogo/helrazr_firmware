@@ -63,19 +63,24 @@ void noise_update() {
     }
     history[GRAPH_W - 1] = rssi;
 
-    // Draw graph
-    display_fill_rect_abs(GRAPH_X, GRAPH_Y, GRAPH_W, GRAPH_H, DISPLAY_BLACK);
-    
+    // Draw graph - use vlines to overwrite instead of fill_rect to prevent flickering
     for (int i = 0; i < GRAPH_W; i++) {
+        int h = 0;
         if (history[i] > RSSI_MIN) {
-            int h = rssiToHeight(history[i]);
-            if (h > 0) {
-                // Determine color based on threshold
-                uint16_t color = DISPLAY_GREEN;
-                if (history[i] > -90) color = DISPLAY_RED;
-                else if (history[i] > -110) color = DISPLAY_YELLOW;
-                display_draw_line(GRAPH_X + i, GRAPH_Y + GRAPH_H, GRAPH_X + i, GRAPH_Y + GRAPH_H - h, color);
-            }
+            h = rssiToHeight(history[i]);
+        }
+        
+        // Draw black space above the bar
+        if (GRAPH_H - h > 0) {
+            display_draw_vline(GRAPH_X + i, GRAPH_Y, GRAPH_H - h, DISPLAY_BLACK);
+        }
+        
+        if (h > 0) {
+            // Determine color based on threshold
+            uint16_t color = DISPLAY_GREEN;
+            if (history[i] > -90) color = DISPLAY_RED;
+            else if (history[i] > -110) color = DISPLAY_YELLOW;
+            display_draw_vline(GRAPH_X + i, GRAPH_Y + GRAPH_H - h, h, color);
         }
     }
 
