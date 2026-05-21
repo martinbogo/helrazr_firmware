@@ -1,5 +1,7 @@
 # Helrazr Firmware
 
+[![License: CC BY-NC-ND 4.0](https://licensebuttons.net/l/by-nc-nd/4.0/88x31.png)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
+
 Custom firmware for the Heltec Mesh Node T114 (nRF52840 + SX1262) and Heltec WiFi LoRa 32 V3 (ESP32-S3 + SX1262). Provides LoRa spectrum analysis, Meshtastic packet decoding, node tracking, GPS tracking, and a USB serial control shell.
 
 ---
