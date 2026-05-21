@@ -295,9 +295,9 @@ void waterfall_update() {
             int x1 = GRAPH_X + ((targetCol + 1) * GRAPH_W) / NUM_STEPS;
             int cx = (x0 + x1) / 2;
 
-            for (int y = GRAPH_Y; y < GRAPH_Y + GRAPH_H; y += 2) {
-                display_fill_rect_abs(cx, y, 1, 1, invertOled ? DISPLAY_BLACK : DISPLAY_WHITE);
-            }
+            // Draw solid vertical line for crosshair to differentiate from dithered data
+            display_fill_rect_abs(cx, GRAPH_Y, 1, GRAPH_H, invertOled ? DISPLAY_BLACK : DISPLAY_WHITE);
+
             // Box fixed at top right to avoid overwriting peak directly
             display_fill_rect_abs(94, 14, 34, 10, invertOled ? DISPLAY_BLACK : DISPLAY_WHITE);
             display_draw_text_small_abs(96, 22, invertOled ? DISPLAY_WHITE : DISPLAY_BLACK, buf);
