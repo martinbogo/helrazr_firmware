@@ -25,7 +25,6 @@ static float    lockedFreq  = 906.875f;
 static float    lockedRSSI  = -200.0f;
 static int      totalPkts   = 0;
 static uint32_t lastRescanMs = 0;
-static uint32_t nextRescanIn = 0;
 
 static void doScan() {
     float bestRSSI = -200, bestFreq = FREQ_START;

@@ -50,7 +50,8 @@ static uint16_t rssiColor(float rssi) {
 
 static int rssiBarW(float rssi, int maxW) {
     float r = (rssi + 130.0f) / 90.0f;
-    if (r < 0) r = 0; if (r > 1) r = 1;
+    if (r < 0) r = 0;
+    if (r > 1) r = 1;
     return (int)(r * maxW);
 }
 
@@ -125,7 +126,7 @@ static void drawPage() {
             bool stale = (known[i].missCount >= STALE_AFTER);
             uint16_t col = stale ? DISPLAY_GRAY : rssiColor(known[i].lastRSSI);
 
-            char freq[10], rssi[8], peak[8];
+            char freq[10], rssi[16], peak[16];
             snprintf(freq, sizeof(freq), "%.3f", known[i].freq);
             snprintf(rssi, sizeof(rssi), "%4d dBm", (int)known[i].lastRSSI);
             snprintf(peak, sizeof(peak), "%4d", (int)known[i].peakRSSI);

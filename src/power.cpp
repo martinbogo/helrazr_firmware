@@ -53,12 +53,14 @@ static void clear_poweroff_overlay() {
 #endif
 }
 
+#if defined(ARDUINO_ARCH_ESP32)
 static void show_wakeup_progress(uint32_t held_ms) {
     // Green NeoPixels build up over BTN_WAKE_MS to signal hold-to-wake progress.
     uint8_t bright = (uint8_t)((held_ms * 80) / BTN_WAKE_MS);
     if (bright > 80) bright = 80;
     neopixel_set_color(0, bright, 0);
 }
+#endif
 
 static bool was_showing_overlay = false;
 

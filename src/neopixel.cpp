@@ -17,8 +17,6 @@
 static Adafruit_NeoPixel pixels(NEOPIXEL_NUM, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 static uint32_t lastRxMs    = 0;
-static uint32_t lastPulseMs = 0;
-static bool     pulseOn     = false;
 
 static const uint32_t RX_FLASH_MS  = 200;   // blue flash duration on RX
 static const uint32_t PULSE_PERIOD = 1000;  // no-fix red pulse period

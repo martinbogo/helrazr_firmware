@@ -57,7 +57,7 @@ static void drawTable() {
         bool active = (i == curChan);
         uint16_t col = active ? DISPLAY_YELLOW : DISPLAY_WHITE;
 
-        char rssiStr[8], ageStr[8];
+        char rssiStr[16], ageStr[16];
         if (stats[i].packets == 0) {
 #if HAS_OLED
             snprintf(rssiStr, sizeof(rssiStr), "-- ");

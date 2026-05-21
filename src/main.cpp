@@ -33,7 +33,6 @@ AppMode currentMode = MODE_MENU;
 
 static uint32_t lastStatusUpdate  = 0;
 static uint32_t lastNeopixelUpdate = 0;
-static bool     lastLoraRx = false;
 
 static float read_battery_voltage() {
     pinMode(PIN_BAT_ADC_EN, OUTPUT);

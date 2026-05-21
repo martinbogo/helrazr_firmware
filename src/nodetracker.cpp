@@ -85,7 +85,7 @@ static void drawTable() {
         int y = 44 + i * 16;
 #endif
 
-        char age[8];
+        char age[16];
         uint32_t secs = (now - n.lastSeenMs) / 1000;
         if (secs < 60)        snprintf(age, sizeof(age), "%3lus", secs);
         else if (secs < 3600) snprintf(age, sizeof(age), "%3lum", secs / 60);

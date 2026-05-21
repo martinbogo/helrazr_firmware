@@ -28,14 +28,6 @@ Adafruit_SSD1306 tft(128, 64, &Wire, PIN_OLED_RST);
 
 static bool powered = false;
 
-#if HAS_OLED
-#define LH 12
-#define B0 10
-#else
-#define LH 18
-#define B0 15
-#endif
-
 static void fmtFloat(char* buf, int buflen, float val, int width, int prec) {
     String s(val, prec);
     while ((int)s.length() < width) s = " " + s;
