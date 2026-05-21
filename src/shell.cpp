@@ -20,9 +20,14 @@ static float read_battery() {
     pinMode(PIN_BAT_ADC_EN, OUTPUT);
     digitalWrite(PIN_BAT_ADC_EN, HIGH);
     delay(5);
+#if defined(HELTEC_V3)
+    float voltage = (analogReadMilliVolts(PIN_BAT_ADC) / 1000.0f) * BAT_ADC_MULTIPLIER;
+#else
     int raw = analogRead(PIN_BAT_ADC);
+    float voltage = (raw / 1024.0f) * 3.6f * BAT_ADC_MULTIPLIER;
+#endif
     digitalWrite(PIN_BAT_ADC_EN, LOW);
-    return (raw / 1024.0f) * 3.6f * BAT_ADC_MULTIPLIER;
+    return voltage;
 }
 
 static void print_help() {
