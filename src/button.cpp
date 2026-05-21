@@ -4,6 +4,7 @@
 // ISR variables
 static volatile uint32_t isrPressStart = 0;
 static volatile uint32_t isrLastEdge   = 0;
+static volatile uint32_t isrLastRelease = 0;
 static volatile bool     isrPressed = false;
 static volatile uint8_t  isrClickCount = 0;
 
@@ -28,6 +29,7 @@ static void button_isr() {
         if (isrPressed) {
             isrPressed = false;
             isrClickCount++;
+            isrLastRelease = now;
         }
     }
 }
@@ -62,15 +64,15 @@ void button_update() {
         
         if (!longFired && !powerFired) {
             // A click has completely finished
-            if (clickCount == 1 && (now - lastReleaseMs < 300)) {
-                // If it's been less than 300ms since last release, it's a double
+            if (clickCount == 1 && (isrLastRelease - lastReleaseMs < 400)) {
+                // If it's been less than 400ms since last release, it's a double
                 eventDouble = true;
                 clickCount = 0;
                 lastReleaseMs = 0;
             } else {
                 clickCount = 1;
-                // We use now as the release time for next check
-                lastReleaseMs = now; 
+                // Use the hardware logged release time to prevent loop jitter
+                lastReleaseMs = isrLastRelease; 
             }
         }
     }
@@ -92,7 +94,7 @@ void button_update() {
         powerFired = false;
         
         // Timeout for short click
-        if (clickCount > 0 && (now - lastReleaseMs) >= 300) {
+        if (clickCount > 0 && (now - lastReleaseMs) >= 400) {
             eventShort = true;
             clickCount = 0;
         }
