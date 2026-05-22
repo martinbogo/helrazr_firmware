@@ -58,13 +58,13 @@ void display_init() {
     // The SSD1306 SETCONTRAST command has a very narrow visual range on its own.
     // To achieve deeper dimming, we must also lower the pre-charge voltage period.
     tft.ssd1306_command(SSD1306_SETPRECHARGE);
-    tft.ssd1306_command(0x22); // Default is 0xF1; lower values (e.g. 0x22 or 0x11) dim the screen heavily
+    tft.ssd1306_command(0xF1); // Maximize precharge for full brightness
 
     tft.ssd1306_command(SSD1306_SETVCOMDETECT);
-    tft.ssd1306_command(0x20); // Default is 0x40; lowering this also reduces intensity
+    tft.ssd1306_command(0x40); // Default VCOM detect
     
     tft.ssd1306_command(SSD1306_SETCONTRAST);
-    tft.ssd1306_command(75); // Now contrast values like 10, 75, or 150 will be significantly more distinct
+    tft.ssd1306_command(200); // Max contrast
     
     tft.clearDisplay();
     tft.setTextColor(DISPLAY_WHITE);
