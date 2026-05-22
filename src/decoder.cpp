@@ -25,6 +25,8 @@ struct LogEntry {
     uint32_t srcNode, destNode;
     uint8_t  hopLimit;
     float    rssi, snr;
+    uint32_t portNum;
+    bool     isCleartext;
     bool     hasText;
     char     text[120];
     uint32_t timeMs;
@@ -39,6 +41,30 @@ static bool      detailMode = false;
 
 static void drawLog();
 
+static const char* getPortName(uint32_t portnum) {
+    switch (portnum) {
+        case 0: return "UNKNOWN";
+        case 1: return "TEXT";
+        case 2: return "REMOTE_HW";
+        case 3: return "POSITION";
+        case 4: return "NODEINFO";
+        case 5: return "ROUTING";
+        case 6: return "ADMIN";
+        case 7: return "TEXT_CMPRS";
+        case 8: return "WAYPOINT";
+        case 9: return "AUDIO";
+        case 64: return "TELEMETRY";
+        case 65: return "ZPSK";
+        case 66: return "SIMULATOR";
+        case 67: return "STORE_FWD";
+        case 68: return "RANGE_TEST";
+        case 69: return "TRACEROUTE";
+        case 70: return "NEIGHBOR";
+        case 71: return "PAXCOUNTER";
+        default: return "APP_DATA";
+    }
+}
+
 static void addLog(const LogEntry& e) {
     log_buf[logHead % LOG_SIZE] = e;
     logHead++; totalPkts++;
@@ -50,28 +76,66 @@ static void addLog(const LogEntry& e) {
     }
 }
 
-static bool tryDecodeText(const uint8_t* payload, int len, char* out, int outlen) {
+static bool tryDecodePayload(const uint8_t* payload, int len, LogEntry& entry) {
     int i = 0;
+    entry.portNum = 0;
+    entry.hasText = false;
+    entry.text[0] = '\0';
+    bool foundPort = false;
+
     while (i < len - 1) {
         uint8_t tag = payload[i++];
         uint8_t field = tag >> 3, wire = tag & 0x07;
         if (wire == 0) {
-            while (i < len && (payload[i++] & 0x80));
+            uint32_t val = 0;
+            int shift = 0;
+            while (i < len) {
+                uint8_t b = payload[i++];
+                val |= (uint32_t)(b & 0x7F) << shift;
+                if (!(b & 0x80)) break;
+                shift += 7;
+            }
+            if (field == 1) {
+                entry.portNum = val;
+                foundPort = true;
+            }
+        } else if (wire == 1) {
+            i += 8;
+        } else if (wire == 5) {
+            i += 4;
         } else if (wire == 2) {
             if (i >= len) break;
-            uint8_t slen = payload[i++];
-            if (slen > len - i) break;
-            if (field == 2 && slen > 0 && slen < (uint8_t)outlen) {
-                memcpy(out, &payload[i], slen); out[slen] = '\0';
-                bool ok = true;
-                for (int k = 0; k < slen; k++) if (out[k] < 0x20 && out[k] != '\n') { ok = false; break; }
-                if (ok) return true;
-                out[0] = '\0';
+            uint32_t slen = 0;
+            int shift = 0;
+            while (i < len) {
+                uint8_t b = payload[i++];
+                slen |= (uint32_t)(b & 0x7F) << shift;
+                if (!(b & 0x80)) break;
+                shift += 7;
+            }
+            if (slen > (uint32_t)(len - i)) break;
+            if (field == 2 && slen > 0) {
+                if (entry.portNum == 1 && slen < sizeof(entry.text)) {
+                    memcpy(entry.text, &payload[i], slen);
+                    entry.text[slen] = '\0';
+                    entry.hasText = true;
+                } else {
+                    entry.hasText = true;
+                    // Provide hex dump of payload for debugging apps
+                    int maxBytes = (slen < 16) ? slen : 16;
+                    char* p = entry.text;
+                    for (int k = 0; k < maxBytes; k++) {
+                        p += sprintf(p, "%02X ", payload[i + k]);
+                    }
+                    if (slen > 16) sprintf(p, "...");
+                }
             }
             i += slen;
-        } else break;
+        } else {
+            break; // unknown wire type
+        }
     }
-    return false;
+    return foundPort; // If we parsed a portnum, we likely decoded valid cleartext Data protobuf
 }
 
 void decoder_short_press() {
@@ -122,19 +186,27 @@ static void drawLog() {
         snprintf(line, sizeof(line), "Msg %d/%d (%lus)", viewOffset + 1, maxPkt, age);
         display_draw_text_small_abs(0, 14, DISPLAY_YELLOW, line);
 
-        if (e.hasText) {
+        if (!e.isCleartext) {
+            display_draw_text_small_abs(0, 24, DISPLAY_GRAY, "<Encrypted / Unknown>");
+        } else if (e.portNum == 1 && e.hasText) {
             display_draw_text_small_abs(0, 24, DISPLAY_WHITE, e.text);
         } else {
-            display_draw_text_small_abs(0, 24, DISPLAY_GRAY, "<No Text Payload>");
+            snprintf(line, sizeof(line), "<%s Packet>", getPortName(e.portNum));
+            display_draw_text_small_abs(0, 24, DISPLAY_CYAN, line);
+            if (e.hasText) display_draw_text_small_abs(0, 34, DISPLAY_GRAY, e.text);
         }
 #else
         snprintf(line, sizeof(line), "Message %d of %d  (-%lus)", viewOffset + 1, maxPkt, age);
         display_draw_text_abs(0, 30, DISPLAY_YELLOW, line);
 
-        if (e.hasText) {
+        if (!e.isCleartext) {
+            display_draw_text_small_abs(0, 48, DISPLAY_GRAY, "<Encrypted / Unknown Data>");
+        } else if (e.portNum == 1 && e.hasText) {
             display_draw_text_small_abs(0, 48, DISPLAY_WHITE, e.text);
         } else {
-            display_draw_text_small_abs(0, 48, DISPLAY_GRAY, "<No Text Payload>");
+            snprintf(line, sizeof(line), "<%s Packet>", getPortName(e.portNum));
+            display_draw_text_small_abs(0, 48, DISPLAY_CYAN, line);
+            if (e.hasText) display_draw_text_small_abs(0, 72, DISPLAY_GRAY, e.text);
         }
 #endif
     } else {
@@ -154,8 +226,12 @@ static void drawLog() {
         snprintf(line, sizeof(line), "R:%d S:%d H:%d", (int)e.rssi, (int)e.snr, e.hopLimit);
         display_draw_text_small_abs(0, 41, DISPLAY_YELLOW, line);
 
-        snprintf(line, sizeof(line), "Text:%s (DblClk)", e.hasText ? "Yes" : "No");
-        display_draw_text_small_abs(0, 50, DISPLAY_CYAN, line);
+        if (e.isCleartext) {
+            snprintf(line, sizeof(line), "Port:%s (DblClk)", getPortName(e.portNum));
+            display_draw_text_small_abs(0, 50, DISPLAY_CYAN, line);
+        } else {
+            display_draw_text_small_abs(0, 50, DISPLAY_GRAY, "Encrypted (DblClk)");
+        }
 #else
         snprintf(line, sizeof(line), "Packet %d / %d  (-%lus)  %s", viewOffset + 1, maxPkt, age, (viewOffset == 0) ? "[LIVE UPDATE]" : "[PAUSED]");
         display_draw_text_abs(0, 32, DISPLAY_GREEN, line);
@@ -166,8 +242,12 @@ static void drawLog() {
         snprintf(line, sizeof(line), "Hop:%d   RSSI:%d   SNR:%d", e.hopLimit, (int)e.rssi, (int)e.snr);
         display_draw_text_abs(0, 78, DISPLAY_YELLOW, line);
 
-        snprintf(line, sizeof(line), "Payload: %s", e.hasText ? "YES >> [Dbl-Click]" : "No");
-        display_draw_text_abs(0, 101, DISPLAY_CYAN, line);
+        if (e.isCleartext) {
+            snprintf(line, sizeof(line), "Port: %s >> [Dbl-Click]", getPortName(e.portNum));
+            display_draw_text_abs(0, 101, DISPLAY_CYAN, line);
+        } else {
+            display_draw_text_abs(0, 101, DISPLAY_GRAY, "Payload: Encrypted >> [Dbl-Click]");
+        }
         
         display_draw_text_small_abs(0, 125, DISPLAY_GRAY, "Single-Clk: Paging  |  Double-Clk: Read Message");
 #endif
@@ -215,7 +295,11 @@ void decoder_update() {
     entry.rssi     = lora_last_rssi();
     entry.snr      = lora_last_snr();
     entry.timeMs   = millis();
-    if (len > 16) entry.hasText = tryDecodeText(buf + 16, len - 16, entry.text, sizeof(entry.text));
+    if (len > 16) {
+        entry.isCleartext = tryDecodePayload(buf + 16, len - 16, entry);
+    } else {
+        entry.isCleartext = false;
+    }
 
     addLog(entry);
     nodetracker_update(hdr.srcNode, entry.rssi, entry.snr);
@@ -227,7 +311,11 @@ void decoder_update() {
     Serial.print("  HopLim:  ");   Serial.println(hopLimit);
     Serial.print("  RSSI:    ");   Serial.print(entry.rssi);   Serial.println(" dBm");
     Serial.print("  SNR:     ");   Serial.print(entry.snr);    Serial.println(" dB");
-    if (entry.hasText) { Serial.print("  Text: \""); Serial.print(entry.text); Serial.println("\""); }
+    if (entry.isCleartext) {
+        Serial.print("  Port:    "); Serial.print(getPortName(entry.portNum));
+        Serial.print(" ("); Serial.print(entry.portNum); Serial.println(")");
+    }
+    if (entry.hasText) { Serial.print("  Payld:   \""); Serial.print(entry.text); Serial.println("\""); }
     Serial.print("  Raw["); Serial.print(len); Serial.print("]: ");
     for (int i = 0; i < len && i < 32; i++) {
         if (buf[i] < 0x10) Serial.print('0');
