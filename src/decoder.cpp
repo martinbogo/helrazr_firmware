@@ -12,6 +12,9 @@
 #include "modes.h"
 #include "display.h"
 #include "nodetracker.h"
+#include <Crypto.h>
+#include <AES.h>
+#include <CTR.h>
 
 
 
@@ -30,6 +33,12 @@ struct LogEntry {
     bool     hasText;
     char     text[120];
     uint32_t timeMs;
+};
+
+
+static const uint8_t DEFAULT_PSK[16] = {
+    0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 
+    0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01
 };
 
 static const int LOG_SIZE = 12;
@@ -76,7 +85,14 @@ static void addLog(const LogEntry& e) {
     }
 }
 
-static bool tryDecodePayload(const uint8_t* payload, int len, LogEntry& entry) {
+static bool tryDecodePayload(const uint8_t* payload, int len, LogEntry& entry, uint32_t packetId, uint32_t srcNode) {
+    CTR<AES128> ctr;
+    uint8_t iv[16] = {0};
+    memcpy(iv, &packetId, 4);
+    memset(iv + 4, 0, 4);
+    memcpy(iv + 8, &srcNode, 4);
+    memset(iv + 12, 0, 4);
+
     int i = 0;
     entry.portNum = 0;
     entry.hasText = false;
@@ -114,6 +130,17 @@ static bool tryDecodePayload(const uint8_t* payload, int len, LogEntry& entry) {
                 shift += 7;
             }
             if (slen > (uint32_t)(len - i)) break;
+            if (field == 5 && slen > 0) {
+                // Encrypted payload! Let's decrypt it in-place using DEFAULT_PSK (AQ==)
+                uint8_t decrypted[256];
+                int dec_len = (slen > sizeof(decrypted)) ? sizeof(decrypted) : slen;
+                ctr.setKey(DEFAULT_PSK, 16);
+                ctr.setIV(iv, 16);
+                ctr.decrypt(decrypted, &payload[i], dec_len);
+                
+                // Now recursively call tryDecodePayload to unpack the decrypted `Data` protobuf
+                return tryDecodePayload(decrypted, dec_len, entry, packetId, srcNode);
+            }
             if (field == 2 && slen > 0) {
                 if (entry.portNum == 1 && slen < sizeof(entry.text)) {
                     memcpy(entry.text, &payload[i], slen);
@@ -296,7 +323,7 @@ void decoder_update() {
     entry.snr      = lora_last_snr();
     entry.timeMs   = millis();
     if (len > 16) {
-        entry.isCleartext = tryDecodePayload(buf + 16, len - 16, entry);
+        entry.isCleartext = tryDecodePayload(buf + 16, len - 16, entry, hdr.packetId, hdr.srcNode);
     } else {
         entry.isCleartext = false;
     }
