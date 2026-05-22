@@ -102,7 +102,12 @@ void test_baud_rates_and_pins(int rx, int tx, const char* label) {
         Serial.printf("\nTesting %s at %ld baud...\n", label, bauds[b]);
         Serial1.end();
         delay(10);
+#if defined(ESP32)
         Serial1.begin(bauds[b], SERIAL_8N1, rx, tx);
+#else
+        Serial1.setPins(rx, tx);
+        Serial1.begin(bauds[b]);
+#endif
         delay(100);
         
         while(Serial1.available()) Serial1.read(); // flush

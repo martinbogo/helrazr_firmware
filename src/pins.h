@@ -44,8 +44,12 @@
 
 // --- LED & Button ---
 #define PIN_LED           35  // P1.03  (active LOW)
+#ifndef LED_STATE_ON
 #define LED_STATE_ON      LOW
+#endif
+#ifndef LED_STATE_OFF
 #define LED_STATE_OFF     HIGH
+#endif
 #define PIN_BUTTON        42  // P1.10
 
 #elif defined(HELTEC_V3)
