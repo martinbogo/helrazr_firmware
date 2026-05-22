@@ -142,26 +142,42 @@ void test_baud_rates_and_pins(int rx, int tx, const char* label) {
 
 void gps_diagnostic_test() {
     Serial.println("\n--- Deep GPS Diagnostic ---");
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
     Serial.println("Powering off GPS (VEXT=HIGH)...");
+#else
+    Serial.println("Powering off GPS (VEXT=LOW)...");
+#endif
 #ifdef PIN_GPS_VEXT
     pinMode(PIN_GPS_VEXT, OUTPUT);
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
     digitalWrite(PIN_GPS_VEXT, HIGH);
-#endif
-    delay(500);
-
-    Serial.println("Powering on GPS (VEXT=LOW)...");
-#ifdef PIN_GPS_VEXT
+#else
     digitalWrite(PIN_GPS_VEXT, LOW);
 #endif
+#endif
     delay(500);
 
-    Serial.println("Asserting STANDBY (40) HIGH (Wake)...");
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
+    Serial.println("Powering on GPS (VEXT=LOW)...");
+#else
+    Serial.println("Powering on GPS (VEXT=HIGH)...");
+#endif
+#ifdef PIN_GPS_VEXT
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
+    digitalWrite(PIN_GPS_VEXT, LOW);
+#else
+    digitalWrite(PIN_GPS_VEXT, HIGH);
+#endif
+#endif
+    delay(500);
+
+    Serial.println("Asserting STANDBY HIGH (Wake)...");
 #ifdef PIN_GPS_STANDBY
     pinMode(PIN_GPS_STANDBY, OUTPUT);
     digitalWrite(PIN_GPS_STANDBY, HIGH);
 #endif
 
-    Serial.println("Resetting GPS (42): LOW 200ms -> HIGH...");
+    Serial.println("Resetting GPS: LOW 200ms -> HIGH...");
 #ifdef PIN_GPS_RST
     pinMode(PIN_GPS_RST, OUTPUT);
     digitalWrite(PIN_GPS_RST, LOW);
@@ -171,18 +187,27 @@ void gps_diagnostic_test() {
     delay(1000); // boot time
 
 #if defined(PIN_GPS_RX) && defined(PIN_GPS_TX)
-    test_baud_rates_and_pins(PIN_GPS_RX, PIN_GPS_TX, "Standard (RX=38, TX=39)");
+    char labelStandard[32];
+    char labelSwapped[32];
+    snprintf(labelStandard, sizeof(labelStandard), "Standard (RX=%d, TX=%d)", PIN_GPS_RX, PIN_GPS_TX);
+    snprintf(labelSwapped, sizeof(labelSwapped), "Swapped (RX=%d, TX=%d)", PIN_GPS_TX, PIN_GPS_RX);
+
+    test_baud_rates_and_pins(PIN_GPS_RX, PIN_GPS_TX, labelStandard);
     
     // Check if we received anything, if not, try swapped pins
-    test_baud_rates_and_pins(PIN_GPS_TX, PIN_GPS_RX, "Swapped (RX=39, TX=38)");
+    test_baud_rates_and_pins(PIN_GPS_TX, PIN_GPS_RX, labelSwapped);
     
-    // Just in case it's active HIGH for power:
-    Serial.println("\n--- Let's try VEXT=HIGH (just in case)...");
+    // Just in case it's the other logic level for power:
+    Serial.println("\n--- Let's try inverted VEXT logic (just in case)...");
 #ifdef PIN_GPS_VEXT
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
     digitalWrite(PIN_GPS_VEXT, HIGH);
+#else
+    digitalWrite(PIN_GPS_VEXT, LOW);
+#endif
 #endif
     delay(1000);
-    test_baud_rates_and_pins(PIN_GPS_RX, PIN_GPS_TX, "Standard (RX=38, TX=39)");
+    test_baud_rates_and_pins(PIN_GPS_RX, PIN_GPS_TX, labelStandard);
 #else
     Serial.println("PIN_GPS_RX or PIN_GPS_TX not defined!");
 #endif
