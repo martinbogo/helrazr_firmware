@@ -157,14 +157,16 @@ static void drawStats() {
         display_draw_text_abs(0, 32, DISPLAY_CYAN, "Node ID   Pkts  AvgRSSI");
         display_draw_hline(0, 48, 240, DISPLAY_GRAY);
         
+        display_fill_rect_abs(0, 49, 240, 86, DISPLAY_BLACK); // Clear the node list area
+
         int shown = min(nodeStatCount, TOP_NODES);
         for (int i = 0; i < shown; i++) {
             snprintf(buf, sizeof(buf), "%08lX  %4d  %4d dBm",
                      topNodes[i].id, topNodes[i].count, (int)topNodes[i].avgRSSI);
-            display_draw_text_abs(0, 58 + i * 18, i == 0 ? DISPLAY_WHITE : (uint16_t)DISPLAY_CYAN, buf);
+            display_draw_text_abs(0, 68 + i * 18, i == 0 ? DISPLAY_WHITE : (uint16_t)DISPLAY_CYAN, buf);
         }
         if (nodeStatCount == 0) {
-            display_draw_text_abs(50, 60, DISPLAY_CYAN, "No packets yet");
+            display_draw_text_abs(50, 68, DISPLAY_CYAN, "No packets yet");
         }
 #endif
     }
