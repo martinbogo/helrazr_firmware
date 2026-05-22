@@ -31,7 +31,7 @@ struct LogEntry {
     uint32_t portNum;
     bool     isCleartext;
     bool     hasText;
-    char     text[120];
+    char     text[240];
     uint32_t timeMs;
 };
 
@@ -47,6 +47,7 @@ static int       logHead = 0;
 static int       totalPkts = 0;
 static int       viewOffset = 0;
 static bool      detailMode = false;
+static int       payloadPage = 0;
 
 static void drawLog();
 
@@ -85,14 +86,7 @@ static void addLog(const LogEntry& e) {
     }
 }
 
-static bool tryDecodePayload(const uint8_t* payload, int len, LogEntry& entry, uint32_t packetId, uint32_t srcNode) {
-    CTR<AES128> ctr;
-    uint8_t iv[16] = {0};
-    memcpy(iv, &packetId, 4);
-    memset(iv + 4, 0, 4);
-    memcpy(iv + 8, &srcNode, 4);
-    memset(iv + 12, 0, 4);
-
+static bool parseDataProto(const uint8_t* payload, int len, LogEntry& entry) {
     int i = 0;
     entry.portNum = 0;
     entry.hasText = false;
@@ -130,17 +124,7 @@ static bool tryDecodePayload(const uint8_t* payload, int len, LogEntry& entry, u
                 shift += 7;
             }
             if (slen > (uint32_t)(len - i)) break;
-            if (field == 5 && slen > 0) {
-                // Encrypted payload! Let's decrypt it in-place using DEFAULT_PSK (AQ==)
-                uint8_t decrypted[256];
-                int dec_len = (slen > sizeof(decrypted)) ? sizeof(decrypted) : slen;
-                ctr.setKey(DEFAULT_PSK, 16);
-                ctr.setIV(iv, 16);
-                ctr.decrypt(decrypted, &payload[i], dec_len);
-                
-                // Now recursively call tryDecodePayload to unpack the decrypted `Data` protobuf
-                return tryDecodePayload(decrypted, dec_len, entry, packetId, srcNode);
-            }
+            
             if (field == 2 && slen > 0) {
                 if (entry.portNum == 1 && slen < sizeof(entry.text)) {
                     memcpy(entry.text, &payload[i], slen);
@@ -149,12 +133,12 @@ static bool tryDecodePayload(const uint8_t* payload, int len, LogEntry& entry, u
                 } else {
                     entry.hasText = true;
                     // Provide hex dump of payload for debugging apps
-                    int maxBytes = (slen < 16) ? slen : 16;
+                    int maxBytes = (slen < (sizeof(entry.text) / 3 - 2)) ? slen : (sizeof(entry.text) / 3 - 2);
                     char* p = entry.text;
                     for (int k = 0; k < maxBytes; k++) {
                         p += sprintf(p, "%02X ", payload[i + k]);
                     }
-                    if (slen > 16) sprintf(p, "...");
+                    if (slen > maxBytes) sprintf(p, "...");
                 }
             }
             i += slen;
@@ -165,8 +149,14 @@ static bool tryDecodePayload(const uint8_t* payload, int len, LogEntry& entry, u
     return foundPort; // If we parsed a portnum, we likely decoded valid cleartext Data protobuf
 }
 
+
 void decoder_short_press() {
     if (totalPkts == 0) return;
+    if (detailMode) {
+        payloadPage++;
+        drawLog();
+        return;
+    }
     viewOffset++;
     int maxOffset = (totalPkts < LOG_SIZE) ? totalPkts : LOG_SIZE;
     if (viewOffset >= maxOffset) {
@@ -178,11 +168,12 @@ void decoder_short_press() {
 void decoder_double_press() {
     if (totalPkts == 0) return;
     detailMode = !detailMode;
+    payloadPage = 0;
     drawLog();
 }
 
 static void drawLog() {
-    display_clear();
+    display_clear(true);
 #if HAS_OLED
     display_draw_text_abs(10, 0, DISPLAY_CYAN, "Meshtastic Decoder");
     display_draw_hline(0, 10, 128, DISPLAY_GRAY);
@@ -209,33 +200,64 @@ static void drawLog() {
         // Deep Dive Mode: Show Full Text Payload
         int maxPkt = totalPkts < LOG_SIZE ? totalPkts : LOG_SIZE;
         uint32_t age = (millis() - e.timeMs) / 1000;
+
+#if HAS_OLED
+        int MAX_CHARS_PER_LINE = 21;
+        int MAX_LINES = 3;
+        int startY = 34;
+        int lineH = 10;
+#else
+        int MAX_CHARS_PER_LINE = 39;
+        int MAX_LINES = 5;
+        int startY = 72;
+        int lineH = 12;
+#endif
+
+        int textLen = e.hasText ? strlen(e.text) : 0;
+        int charsPerPage = MAX_CHARS_PER_LINE * MAX_LINES;
+        int totalPages = e.hasText ? ((textLen + charsPerPage - 1) / charsPerPage) : 1;
+        if (totalPages == 0) totalPages = 1;
+        
+        if (payloadPage >= totalPages) payloadPage = 0; // Wrap around pagination
+
 #if HAS_OLED
         snprintf(line, sizeof(line), "Msg %d/%d (%lus)", viewOffset + 1, maxPkt, age);
         display_draw_text_small_abs(0, 14, DISPLAY_YELLOW, line);
 
         if (!e.isCleartext) {
-            display_draw_text_small_abs(0, 24, DISPLAY_GRAY, "<Encrypted / Unknown>");
-        } else if (e.portNum == 1 && e.hasText) {
-            display_draw_text_small_abs(0, 24, DISPLAY_WHITE, e.text);
+            display_draw_text_small_abs(0, 24, DISPLAY_WHITE, "<Encrypted/Unknown>");
         } else {
-            snprintf(line, sizeof(line), "<%s Packet>", getPortName(e.portNum));
+            snprintf(line, sizeof(line), "<%s> P%d/%d", getPortName(e.portNum), payloadPage + 1, totalPages);
             display_draw_text_small_abs(0, 24, DISPLAY_CYAN, line);
-            if (e.hasText) display_draw_text_small_abs(0, 34, DISPLAY_GRAY, e.text);
         }
 #else
         snprintf(line, sizeof(line), "Message %d of %d  (-%lus)", viewOffset + 1, maxPkt, age);
         display_draw_text_abs(0, 30, DISPLAY_YELLOW, line);
 
         if (!e.isCleartext) {
-            display_draw_text_small_abs(0, 48, DISPLAY_GRAY, "<Encrypted / Unknown Data>");
-        } else if (e.portNum == 1 && e.hasText) {
-            display_draw_text_small_abs(0, 48, DISPLAY_WHITE, e.text);
+            display_draw_text_small_abs(0, 48, DISPLAY_WHITE, "<Encrypted / Unknown Data>");
         } else {
-            snprintf(line, sizeof(line), "<%s Packet>", getPortName(e.portNum));
+            snprintf(line, sizeof(line), "<%s Packet>  [Page %d/%d]", getPortName(e.portNum), payloadPage + 1, totalPages);
             display_draw_text_small_abs(0, 48, DISPLAY_CYAN, line);
-            if (e.hasText) display_draw_text_small_abs(0, 72, DISPLAY_GRAY, e.text);
         }
 #endif
+
+        if (e.hasText) {
+            int startIdx = payloadPage * charsPerPage;
+            for (int i = 0; i < MAX_LINES; i++) {
+                int lineStart = startIdx + i * MAX_CHARS_PER_LINE;
+                if (lineStart >= textLen) break;
+                
+                int len = textLen - lineStart;
+                if (len > MAX_CHARS_PER_LINE) len = MAX_CHARS_PER_LINE;
+                
+                char lineBuf[42]; // Max 39 + null
+                memcpy(lineBuf, e.text + lineStart, len);
+                lineBuf[len] = '\0';
+                
+                display_draw_text_small_abs(0, startY + i * lineH, DISPLAY_WHITE, lineBuf);
+            }
+        }
     } else {
         // Ticker / Metadata mode
         int maxPkt = totalPkts < LOG_SIZE ? totalPkts : LOG_SIZE;
@@ -290,7 +312,7 @@ void decoder_enter() {
     memset(log_buf, 0, sizeof(log_buf));
     lora_apply_channel(0);
     lora_start_listen();
-    display_clear();
+    display_clear(true);
 #if HAS_OLED
     display_draw_text_abs(10, 0, DISPLAY_CYAN, "Meshtastic Decoder");
     display_draw_hline(0, 10, 128, DISPLAY_GRAY);
@@ -322,11 +344,35 @@ void decoder_update() {
     entry.rssi     = lora_last_rssi();
     entry.snr      = lora_last_snr();
     entry.timeMs   = millis();
+    
+    bool isCleartext = false;
     if (len > 16) {
-        entry.isCleartext = tryDecodePayload(buf + 16, len - 16, entry, hdr.packetId, hdr.srcNode);
-    } else {
-        entry.isCleartext = false;
+        // Try as cleartext first
+        if (parseDataProto(buf + 16, len - 16, entry)) {
+            isCleartext = true;
+        } else {
+            // Assume encrypted, try to decrypt with DEFAULT_PSK
+            CTR<AES128> ctr;
+            uint8_t iv[16] = {0};
+            memcpy(iv, &hdr.packetId, 4);
+            memcpy(iv + 8, &hdr.srcNode, 4);
+            
+            ctr.setKey(DEFAULT_PSK, 16);
+            ctr.setIV(iv, 16);
+            
+            uint8_t decrypted[256];
+            int dec_len = len - 16;
+            if (dec_len > sizeof(decrypted)) dec_len = sizeof(decrypted);
+            
+            ctr.decrypt(decrypted, buf + 16, dec_len);
+            
+            // Now parse the decrypted data
+            if (parseDataProto(decrypted, dec_len, entry)) {
+                isCleartext = true;  // Mark as successfully interpreted
+            }
+        }
     }
+    entry.isCleartext = isCleartext;
 
     addLog(entry);
     nodetracker_update(hdr.srcNode, entry.rssi, entry.snr);
