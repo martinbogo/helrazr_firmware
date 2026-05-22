@@ -300,7 +300,7 @@ void waterfall_update() {
 
             // Box fixed at top right to avoid overwriting peak directly
             display_fill_rect_abs(94, 14, 34, 10, invertOled ? DISPLAY_BLACK : DISPLAY_WHITE);
-            display_draw_text_small_abs(96, 22, invertOled ? DISPLAY_WHITE : DISPLAY_BLACK, buf);
+            display_draw_text_small_abs(96, 15, invertOled ? DISPLAY_WHITE : DISPLAY_BLACK, buf);
 #else
             // High-speed SPI burst draws rows directly on TFT, so we must calculate cx for the whole screen
             int cx = (targetCol * GRAPH_W) / NUM_STEPS + GRAPH_X + (GRAPH_W / NUM_STEPS / 2);

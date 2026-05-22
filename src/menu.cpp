@@ -113,3 +113,59 @@ void menu_draw() {
 }
 
 AppMode menu_selection() { return (AppMode)selected; }
+
+#define NUM_DROPS 15
+struct MatrixDrop {
+    int x;
+    float y;
+    float speed;
+};
+static MatrixDrop drops[NUM_DROPS];
+static bool matrix_initialized = false;
+
+void menu_reset_matrix() {
+    matrix_initialized = false;
+}
+
+void menu_draw_matrix() {
+    if (!matrix_initialized) {
+        for (int i=0; i<NUM_DROPS; i++) {
+#if HAS_OLED
+            drops[i].x = random(0, 128);
+            drops[i].y = random(-64, 0);
+#else
+            drops[i].x = random(0, 240);
+            drops[i].y = random(-135, 0);
+#endif
+            drops[i].speed = random(10, 40) / 10.0f;
+        }
+        matrix_initialized = true;
+    }
+
+#if HAS_OLED
+    display_clear();
+    int height = 64;
+#else
+    display_clear(true);
+    int height = 135;
+#endif
+
+    for (int i=0; i<NUM_DROPS; i++) {
+        drops[i].y += drops[i].speed;
+        if (drops[i].y > height) {
+            drops[i].y = random(-20, 0);
+#if HAS_OLED
+            drops[i].x = random(0, 128);
+#else
+            drops[i].x = random(0, 240);
+#endif
+            drops[i].speed = random(10, 40) / 10.0f;
+        }
+
+        int drawY = (int)drops[i].y;
+        if (drawY >= 0 && drawY < height) {
+            display_draw_vline(drops[i].x, drawY, 3, DISPLAY_CYAN);
+        }
+    }
+    display_update_buffer();
+}

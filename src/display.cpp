@@ -54,6 +54,8 @@ void display_init() {
 #elif HAS_OLED
     Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
     tft.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+    tft.ssd1306_command(SSD1306_SETCONTRAST);
+    tft.ssd1306_command(153); // Match Meshtastic default brightness
     tft.clearDisplay();
     tft.setTextColor(DISPLAY_WHITE);
     tft.setTextSize(1);

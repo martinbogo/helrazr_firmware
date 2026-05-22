@@ -13,4 +13,6 @@
 void menu_init();
 void menu_update();
 void menu_draw();
+void menu_draw_matrix();
+void menu_reset_matrix();
 AppMode menu_selection();

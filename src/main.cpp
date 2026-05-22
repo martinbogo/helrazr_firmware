@@ -158,18 +158,59 @@ void loop() {
     gps_update();
     lora_update();
     shell_update();
+    uint32_t now = millis();
+    uint32_t idleMs = now - button_last_activity_ms();
+    bool wasAsleep = (currentMode == MODE_MENU && idleMs >= 120000);
+
     button_update();
+
+    // Recalculate idle time after button update handles any new activity
+    idleMs = millis() - button_last_activity_ms();
+    bool isAsleep = (currentMode == MODE_MENU && idleMs >= 120000);
+    
+    bool inScreensaver = (isAsleep && idleMs <= 420000);
+    bool inDeepStandby = (isAsleep && idleMs > 420000);
+
+    // Wake logic: intercept interactions to wake the screen immediately
+    if (wasAsleep && !isAsleep) {
+        if (!display_is_on()) display_on();
+        menu_reset_matrix();
+        menu_init();
+        menu_draw();
+        button_consume(); // Wipe any generated events so the menu doesn't advance
+        return; 
+    }
 
     // Power management -- handles 10s poweroff and countdown overlay.
     // Must come before neopixel_update so amber warning can override status colours.
     power_update();
 
     // Normal neopixel status (only when not in power-off warning zone)
-    uint32_t now = millis();
     if (button_held_ms() < BTN_WARN_MS && now - lastNeopixelUpdate > 100) {
         lastNeopixelUpdate = now;
-        bool rxRecent = (now - lora_last_rx_ms()) < 300;
-        neopixel_update(gps_has_fix(), rxRecent);
+        if (inDeepStandby) {
+            float phase = (now % 2000) / 1000.0f; // 0.0 to 1.999
+            if (phase > 1.0f) phase = 2.0f - phase; // 0.0 to 1.0
+            uint8_t val = (uint8_t)((0.25f + 0.50f * phase) * 255.0f);
+            neopixel_set_color(0, 0, val);
+        } else {
+            bool rxRecent = (now - lora_last_rx_ms()) < 300;
+            neopixel_update(gps_has_fix(), rxRecent);
+        }
+    }
+
+    // Deep standby: turn screen off if not already
+    if (inDeepStandby && display_is_on()) {
+        display_off();
+    }
+
+    // Screensaver drawing
+    if (inScreensaver) {
+        static uint32_t lastMatrixUpdate = 0;
+        if (now - lastMatrixUpdate > 50) {
+            lastMatrixUpdate = now;
+            menu_draw_matrix();
+        }
     }
 
     if (lora_poll_packet()) {

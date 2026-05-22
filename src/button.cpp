@@ -53,10 +53,14 @@ static bool eventPowerOff = false;
 
 static bool longFired     = false;
 static bool powerFired    = false;
+static bool ignoreUntilRelease = false;
+
+static uint32_t lastActivityMs = 0;
 
 void button_init() {
     pinMode(PIN_BUTTON, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(PIN_BUTTON), button_isr, CHANGE);
+    lastActivityMs = millis();
 }
 
 void button_update() {
@@ -66,11 +70,21 @@ void button_update() {
     eventPowerOff = false;
 
     uint32_t now = millis();
+    
+    // Immediately log activity if the button is physically held down
+    if (isrPressed) {
+        lastActivityMs = now;
+    } else {
+        ignoreUntilRelease = false;
+    }
 
     // Consume clicks accumulated by the ISR
     while (isrClickCount > 0) {
+        lastActivityMs = now;
         isrClickCount--;
         
+        if (ignoreUntilRelease) continue;
+
         if (!longFired && !powerFired) {
             // A click has completely finished
             if (clickCount == 1 && (isrLastRelease - lastReleaseMs < 400)) {
@@ -93,10 +107,12 @@ void button_update() {
             eventLong = true;
             longFired = true;
             clickCount = 0; // Cancel pending short
+            lastActivityMs = now;
         }
         if (!powerFired && held >= BTN_POWEROFF_MS) {
             eventPowerOff = true;
             powerFired = true;
+            lastActivityMs = now;
         }
     } else {
         longFired = false;
@@ -117,4 +133,18 @@ bool     button_poweroff_pressed() { return eventPowerOff; }
 uint32_t button_held_ms() {
     if (!isrPressed) return 0;
     return millis() - isrPressStart;
+}
+
+uint32_t button_last_activity_ms() {
+    return lastActivityMs;
+}
+
+void button_consume() {
+    isrClickCount = 0;
+    clickCount = 0;
+    eventShort    = false;
+    eventDouble   = false;
+    eventLong     = false;
+    eventPowerOff = false;
+    if (isrPressed) ignoreUntilRelease = true;
 }

@@ -23,3 +23,5 @@ bool     button_double_pressed();   // true once per double press
 bool     button_long_pressed();     // true once per long press (600ms, fires while held)
 bool     button_poweroff_pressed(); // true once at 10s hold (fires while held)
 uint32_t button_held_ms();          // current continuous hold duration (0 if not held)
+uint32_t button_last_activity_ms(); // Returns the time of the last button activity
+void     button_consume();          // consumed pending and generated events
