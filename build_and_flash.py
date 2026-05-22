@@ -7,10 +7,10 @@ import os
 def show_help():
     print(f"Usage: {os.path.basename(sys.argv[0])} [OPTIONS]")
     print("")
-    print("Build and flash Helrazr Firmware for Heltec T114 or WiFi LoRa 32 V3.")
+    print("Build and flash Helrazr Firmware for Heltec T114, WiFi LoRa 32 V3, or V4.")
     print("")
     print("Options:")
-    print("  -b, --board <board>   Target board: 't114' or 'v3'.")
+    print("  -b, --board <board>   Target board: 't114', 'v3', or 'v4'.")
     print("  -p, --port <port>     Serial port for flashing (e.g., /dev/tty.usbmodem101 or COM3).")
     print("                        If no port is provided, the script will only build.")
     print("  -h, --help            Show this help message.")
@@ -22,7 +22,7 @@ def show_help():
 
 def main():
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("-b", "--board", type=str, help="Target board: 't114' or 'v3'")
+    parser.add_argument("-b", "--board", type=str, help="Target board: 't114', 'v3', or 'v4'")
     parser.add_argument("-p", "--port", type=str, help="Target serial port")
     parser.add_argument("-h", "--help", action="store_true", help="Show help")
     
@@ -42,8 +42,10 @@ def main():
         env = "t114"
     elif board == "v3":
         env = "heltec_v3"
+    elif board == "v4":
+        env = "heltec_v4"
     else:
-        print(f"Error: Invalid board '{board}'. Must be 't114' or 'v3'.")
+        print(f"Error: Invalid board '{board}'. Must be 't114', 'v3', or 'v4'.")
         sys.exit(1)
         
     print("========================================")

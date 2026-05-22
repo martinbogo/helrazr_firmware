@@ -9,6 +9,7 @@
 
 #include "display.h"
 #include "pins.h"
+#include "gps.h"
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -52,6 +53,13 @@ void display_init() {
 
     digitalWrite(PIN_TFT_BL, LOW);
 #elif HAS_OLED
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
+    // Core esp32-s3-devkitc-1 variant doesn't auto-enable Vext (Pin 36),
+    // and V4 relies on this to power the OLED.
+    pinMode(36, OUTPUT);
+    digitalWrite(36, LOW); // Active LOW for power on
+    delay(50);
+#endif
     Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
     tft.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 
@@ -121,7 +129,7 @@ void display_update(float lat, float lon, int sats, bool gps_fix,
 #endif
 
 #if HAS_GPS
-    snprintf(buf, sizeof(buf), "GPS: %-3s  Sats: %d", gps_fix ? "3D" : "No", sats);
+    snprintf(buf, sizeof(buf), "GPS: %-3s  Sats: %d  Rx: %lu", gps_fix ? "3D" : "No", sats, gps_chars_processed());
 #if HAS_OLED
     display_draw_text_abs(0, y, DISPLAY_GREEN, buf);
 #else

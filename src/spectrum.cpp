@@ -33,9 +33,16 @@ static const int GRAPH_H  = 85;   // leaves ample room at bottom for 2 lines of 
 static const int RSSI_MIN = -135;
 static const int RSSI_MAX = -40;
 
+enum SpectrumMode {
+    MODE_SWEEP = 0,
+    MODE_HOLD,
+    MODE_AVERAGE
+};
+static SpectrumMode currentMode = MODE_SWEEP;
+
 static float rssiBuffer[53];
-static bool  peakHoldActive = false;
 static float peakHoldBuffer[53];
+static float avgBuffer[53];
 
 static int rssiToHeight(float rssi) {
     if (rssi < RSSI_MIN) rssi = RSSI_MIN;
@@ -50,16 +57,20 @@ static uint16_t rssiToColor(float rssi) {
 }
 
 void spectrum_short_press() {
-    peakHoldActive = !peakHoldActive;
-    if (peakHoldActive) {
+    currentMode = (SpectrumMode)((currentMode + 1) % 3);
+    if (currentMode == MODE_HOLD) {
         for (int i = 0; i < NUM_STEPS; i++) {
             peakHoldBuffer[i] = -200.0f;
+        }
+    } else if (currentMode == MODE_AVERAGE) {
+        for (int i = 0; i < NUM_STEPS; i++) {
+            avgBuffer[i] = rssiBuffer[i]; // seed with last sweep
         }
     }
 }
 
 void spectrum_enter() {
-    peakHoldActive = false;
+    currentMode = MODE_SWEEP;
     display_clear();
 #if HAS_OLED
     display_draw_text_abs(5, 0, DISPLAY_CYAN, "Spectrum 902-928 MHz");
@@ -85,6 +96,14 @@ void spectrum_update() {
         float freq = FREQ_START + i * FREQ_STEP;
         float rssi = lora_scan_rssi(freq);
         rssiBuffer[i] = rssi;
+        
+        if (currentMode == MODE_AVERAGE) {
+            float alpha = 0.2f;
+            if (avgBuffer[i] == -200.0f) avgBuffer[i] = rssi; // Initial seed guard
+            avgBuffer[i] = (rssi * alpha) + (avgBuffer[i] * (1.0f - alpha));
+            rssi = avgBuffer[i]; // Use smoothed value for drawing and peak calculation
+        }
+
         if (rssi > peakRSSI) { peakRSSI = rssi; peakFreq = freq; }
 
         // Proportional bar placement fills the full graph width exactly
@@ -97,7 +116,7 @@ void spectrum_update() {
         display_fill_rect_abs(x0, GRAPH_Y,                bw, GRAPH_H - h, DISPLAY_BLACK);
         if (h > 0) display_fill_rect_abs(x0, GRAPH_Y + GRAPH_H - h, bw, h, rssiToColor(rssi));
 
-        if (peakHoldActive) {
+        if (currentMode == MODE_HOLD) {
             if (rssi > peakHoldBuffer[i]) {
                 peakHoldBuffer[i] = rssi;
             }
@@ -125,13 +144,18 @@ void spectrum_update() {
 
     // End of sweep: update peak annotation
     char peak[36];
+    const char* modeStr = "[S] ";
+    if (currentMode == MODE_HOLD) modeStr = "[H] ";
+    else if (currentMode == MODE_AVERAGE) modeStr = "[A] ";
+
 #if HAS_OLED
-    snprintf(peak, sizeof(peak), "%sPk:%.1fMHz %ddBm", peakHoldActive ? "[H] " : "", peakFreq, (int)peakRSSI);
+    snprintf(peak, sizeof(peak), "%sPk:%.1fMHz %ddBm", modeStr, peakFreq, (int)peakRSSI);
     display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 2, GRAPH_W, 10, DISPLAY_BLACK);
     display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 4, DISPLAY_WHITE, peak);
 #else
-    snprintf(peak, sizeof(peak), "%sPeak:%.1fMHz %ddBm         ", peakHoldActive ? "[H] " : "", peakFreq, (int)peakRSSI);
-    display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 17, DISPLAY_WHITE, peak);
+    snprintf(peak, sizeof(peak), "%sPeak: %.1fMHz  %ddBm", modeStr, peakFreq, (int)peakRSSI);
+    display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 15, GRAPH_W, 15, DISPLAY_BLACK);
+    display_draw_text_abs(0, GRAPH_Y + GRAPH_H + 28, DISPLAY_WHITE, peak);
 #endif
 
     display_update_buffer();

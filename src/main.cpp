@@ -36,19 +36,19 @@ static uint32_t lastNeopixelUpdate = 0;
 
 static float read_battery_voltage() {
     pinMode(PIN_BAT_ADC_EN, OUTPUT);
-#if defined(HELTEC_V3)
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
     digitalWrite(PIN_BAT_ADC_EN, LOW);
 #else
     digitalWrite(PIN_BAT_ADC_EN, HIGH);
 #endif
     delay(5);
-#if defined(HELTEC_V3)
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
     float voltage = (analogReadMilliVolts(PIN_BAT_ADC) / 1000.0f) * BAT_ADC_MULTIPLIER;
 #else
     int raw = analogRead(PIN_BAT_ADC);
     float voltage = (raw / 1024.0f) * 3.6f * BAT_ADC_MULTIPLIER;
 #endif
-#if defined(HELTEC_V3)
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
     digitalWrite(PIN_BAT_ADC_EN, HIGH);
 #else
     digitalWrite(PIN_BAT_ADC_EN, LOW);

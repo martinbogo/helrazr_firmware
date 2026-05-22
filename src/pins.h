@@ -78,4 +78,43 @@
 // --- No GPS ---
 #undef PIN_GPS_RX
 #undef PIN_GPS_TX
+
+#elif defined(HELTEC_V4)
+// Heltec WiFi LoRa 32 V4 (ESP32-S3R2)
+// --- LoRa SX1262 ---
+#define PIN_LORA_MOSI     10
+#define PIN_LORA_MISO     11
+#define PIN_LORA_SCK      9
+#define PIN_LORA_CS       8
+#define PIN_LORA_RST      12
+#define PIN_LORA_BUSY     13
+#define PIN_LORA_DIO1     14
+
+// --- Display SSD1306 ---
+#define PIN_OLED_SDA      17
+#define PIN_OLED_SCL      18
+#define PIN_OLED_RST      21
+
+// --- Battery ADC ---
+#define PIN_BAT_ADC       1
+#define PIN_BAT_ADC_EN    37
+#define BAT_ADC_MULTIPLIER 4.916f
+
+// --- LED & Button ---
+#define PIN_LED           35
+#define LED_STATE_ON      HIGH
+#define LED_STATE_OFF     LOW
+#define PIN_BUTTON        0
+
+// --- GPS GNSS ---
+#define PIN_GPS_RX        39 // ESP32 RX (from GPS TX)
+#define PIN_GPS_TX        38 // ESP32 TX (to GPS RX)
+#define PIN_GPS_VEXT      34 // VGNSS Ctrl
+#define PIN_GPS_STANDBY   40 // GNSS_Wake
+#define PIN_GPS_PPS       41 
+#define PIN_GPS_RST       42
+
+// esp32-s3-devkitc-1 defines pins for a neopixel we don't have
+#undef PIN_NEOPIXEL
+
 #endif

@@ -18,19 +18,19 @@ static int linepos = 0;
 
 static float read_battery() {
     pinMode(PIN_BAT_ADC_EN, OUTPUT);
-#if defined(HELTEC_V3)
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
     digitalWrite(PIN_BAT_ADC_EN, LOW);
 #else
     digitalWrite(PIN_BAT_ADC_EN, HIGH);
 #endif
     delay(5);
-#if defined(HELTEC_V3)
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
     float voltage = (analogReadMilliVolts(PIN_BAT_ADC) / 1000.0f) * BAT_ADC_MULTIPLIER;
 #else
     int raw = analogRead(PIN_BAT_ADC);
     float voltage = (raw / 1024.0f) * 3.6f * BAT_ADC_MULTIPLIER;
 #endif
-#if defined(HELTEC_V3)
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
     digitalWrite(PIN_BAT_ADC_EN, HIGH);
 #else
     digitalWrite(PIN_BAT_ADC_EN, LOW);
@@ -115,6 +115,9 @@ static void process_line(char* line) {
         cmd_status();
     } else if (strcmp(line, "gps") == 0) {
         cmd_gps();
+    } else if (strcmp(line, "gps test") == 0) {
+        extern void gps_diagnostic_test();
+        gps_diagnostic_test();
     } else if (strcmp(line, "lora") == 0) {
         cmd_lora();
     } else if (strcmp(line, "lora listen") == 0) {
@@ -163,7 +166,7 @@ static void process_line(char* line) {
         delay(100);
 #if defined(HELTEC_T114)
         NVIC_SystemReset();
-#elif defined(HELTEC_V3)
+#elif defined(HELTEC_V3) || defined(HELTEC_V4)
         ESP.restart();
 #endif
     } else {

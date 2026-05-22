@@ -7,10 +7,10 @@ import os
 def show_help():
     print("Usage: build_and_ota.py [OPTIONS]")
     print("")
-    print("Build and OTA flash Helrazr Firmware for Heltec T114 or WiFi LoRa 32 V3.")
+    print("Build and OTA flash Helrazr Firmware for Heltec T114, WiFi LoRa 32 V3, or V4.")
     print("")
     print("Options:")
-    print("  -b, --board <board>   Target board: 't114' or 'v3'.")
+    print("  -b, --board <board>   Target board: 't114', 'v3', or 'v4'.")
     print("  -h, --help            Show this help message.")
     print("")
     print("Examples:")
@@ -20,7 +20,7 @@ def show_help():
 
 def main():
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("-b", "--board", type=str, help="Target board: 't114' or 'v3'")
+    parser.add_argument("-b", "--board", type=str, help="Target board: 't114', 'v3', or 'v4'")
     parser.add_argument("-h", "--help", action="store_true", help="Show help")
     
     args, unknown = parser.parse_known_args()
@@ -43,8 +43,12 @@ def main():
         env = "heltec_v3"
         firmware_file = ".pio/build/heltec_v3/firmware.bin"
         ota_script = "ota_ble.py"
+    elif board == "v4":
+        env = "heltec_v4"
+        firmware_file = ".pio/build/heltec_v4/firmware.bin"
+        ota_script = "ota_ble.py"
     else:
-        print(f"Error: Invalid board '{board}'. Must be 't114' or 'v3'.")
+        print(f"Error: Invalid board '{board}'. Must be 't114', 'v3', or 'v4'.")
         sys.exit(1)
         
     print("========================================")

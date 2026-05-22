@@ -16,7 +16,7 @@
 #if defined(HELTEC_T114)
 static SPIClass loraSPI(NRF_SPIM2, PIN_LORA_MISO, PIN_LORA_SCK, PIN_LORA_MOSI);
 static Module   mod(PIN_LORA_CS, PIN_LORA_DIO1, PIN_LORA_RST, PIN_LORA_BUSY, loraSPI);
-#elif defined(HELTEC_V3)
+#elif defined(HELTEC_V3) || defined(HELTEC_V4)
 static SPIClass loraSPI(FSPI);
 static Module   mod(PIN_LORA_CS, PIN_LORA_DIO1, PIN_LORA_RST, PIN_LORA_BUSY, loraSPI);
 #endif
@@ -43,7 +43,7 @@ static void onReceive() {
 }
 
 void lora_init() {
-#if defined(HELTEC_V3)
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
     // ESP32: begin() with pin args configures and initialises in one call
     loraSPI.begin(PIN_LORA_SCK, PIN_LORA_MISO, PIN_LORA_MOSI, -1);
 #else

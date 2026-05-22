@@ -21,7 +21,7 @@
 #include "nrf_sdm.h"    // sd_softdevice_is_enabled()
 #endif
 
-#if defined(HELTEC_V3)
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
 #include "esp_sleep.h"
 #endif
 
@@ -154,7 +154,7 @@ void power_init() {
 // -----------------------------------------------------------------------
 // Platform: ESP32-S3 (V3)
 // -----------------------------------------------------------------------
-#elif defined(HELTEC_V3)
+#elif defined(HELTEC_V3) || defined(HELTEC_V4)
 
 void power_standby() {
     Serial.println("Entering standby...");
@@ -163,6 +163,12 @@ void power_standby() {
 
     display_off();
     neopixel_off();
+
+#if defined(HELTEC_V3) || defined(HELTEC_V4)
+    // Turn off external power (VEXT) on pin 36 (active low, so HIGH=off)
+    pinMode(36, OUTPUT);
+    digitalWrite(36, HIGH);
+#endif
 
     // Wake on button (GPIO 0) pulled LOW
     esp_sleep_enable_ext0_wakeup((gpio_num_t)PIN_BUTTON, 0);
