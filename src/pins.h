@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "config.h"
+
 #if defined(HELTEC_T114)
 // nRF52840 Arduino pin mapping: P0.xx = xx, P1.xx = 32 + xx
 
@@ -30,9 +32,13 @@
 #define PIN_TFT_PWR        3  // P0.03  (display power enable)
 #define PIN_TFT_BL        15  // P0.15  (backlight, active LOW)
 
-// --- GPS M100 Mini (UARTE1) ---
-#define PIN_GPS_RX        8   // P0.08  (GPS TX -> CPU RX)
-#define PIN_GPS_TX        7   // P0.07  (CPU TX -> GPS RX)
+// --- GPS (UARTE1) ---
+// T114 does not have an onboard GNSS. To use an external GPS,
+// define USE_CUSTOM_GPS_PINS in config.h and specify the pins there.
+#undef PIN_GPS_RX
+#undef PIN_GPS_TX
+// #define PIN_GPS_RX        ?
+// #define PIN_GPS_TX        ?
 // #define PIN_GPS_STANDBY   34  // Not connected
 // #define PIN_GPS_PPS       36  // Not connected
 // #define PIN_GPS_VEXT      21  // Not connected
@@ -123,3 +129,47 @@
 #undef PIN_NEOPIXEL
 
 #endif
+
+// --- Override GPS pins if user configured custom ones ---
+#ifdef USE_CUSTOM_GPS_PINS
+
+#ifdef PIN_GPS_RX
+#undef PIN_GPS_RX
+#endif
+#define PIN_GPS_RX CUSTOM_GPS_RX
+
+#ifdef PIN_GPS_TX
+#undef PIN_GPS_TX
+#endif
+#define PIN_GPS_TX CUSTOM_GPS_TX
+
+#ifdef PIN_GPS_VEXT
+#undef PIN_GPS_VEXT
+#endif
+#ifdef CUSTOM_GPS_VEXT
+#define PIN_GPS_VEXT CUSTOM_GPS_VEXT
+#endif
+
+#ifdef PIN_GPS_STANDBY
+#undef PIN_GPS_STANDBY
+#endif
+#ifdef CUSTOM_GPS_STANDBY
+#define PIN_GPS_STANDBY CUSTOM_GPS_STANDBY
+#endif
+
+#ifdef PIN_GPS_PPS
+#undef PIN_GPS_PPS
+#endif
+#ifdef CUSTOM_GPS_PPS
+#define PIN_GPS_PPS CUSTOM_GPS_PPS
+#endif
+
+#ifdef PIN_GPS_RST
+#undef PIN_GPS_RST
+#endif
+#ifdef CUSTOM_GPS_RST
+#define PIN_GPS_RST CUSTOM_GPS_RST
+#endif
+
+#endif // USE_CUSTOM_GPS_PINS
+
