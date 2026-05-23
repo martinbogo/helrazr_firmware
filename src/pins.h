@@ -36,6 +36,7 @@
 #define PIN_GPS_STANDBY   34  // P1.02  (LOW=sleep, HIGH=wake)
 #define PIN_GPS_PPS       36  // P1.04
 #define PIN_GPS_VEXT      21  // P0.21  (peripheral power, HIGH=on)
+#define PIN_GPS_RST       38  // P1.06  (LOW=reset, HIGH=run)
 
 // --- Battery ADC ---
 #define PIN_BAT_ADC        4  // P0.04  (AIN2)
