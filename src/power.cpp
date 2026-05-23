@@ -123,7 +123,9 @@ void power_standby() {
 
     display_off();
     neopixel_off();
+#ifdef PIN_GPS_VEXT
     digitalWrite(PIN_GPS_VEXT, LOW);  // cut GPS power
+#endif
 
     enter_system_off();
 }

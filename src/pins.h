@@ -30,13 +30,13 @@
 #define PIN_TFT_PWR        3  // P0.03  (display power enable)
 #define PIN_TFT_BL        15  // P0.15  (backlight, active LOW)
 
-// --- GPS L76K (UARTE1) ---
-#define PIN_GPS_RX        39  // P1.07  (GPS TX -> CPU RX)
-#define PIN_GPS_TX        37  // P1.05  (CPU TX -> GPS RX)
-#define PIN_GPS_STANDBY   34  // P1.02  (LOW=sleep, HIGH=wake)
-#define PIN_GPS_PPS       36  // P1.04
-#define PIN_GPS_VEXT      21  // P0.21  (peripheral power, HIGH=on)
-#define PIN_GPS_RST       38  // P1.06  (LOW=reset, HIGH=run)
+// --- GPS M100 Mini (UARTE1) ---
+#define PIN_GPS_RX        8   // P0.08  (GPS TX -> CPU RX)
+#define PIN_GPS_TX        7   // P0.07  (CPU TX -> GPS RX)
+// #define PIN_GPS_STANDBY   34  // Not connected
+// #define PIN_GPS_PPS       36  // Not connected
+// #define PIN_GPS_VEXT      21  // Not connected
+// #define PIN_GPS_RST       38  // Not connected
 
 // --- Battery ADC ---
 #define PIN_BAT_ADC        4  // P0.04  (AIN2)

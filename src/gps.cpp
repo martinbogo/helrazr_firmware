@@ -17,17 +17,21 @@
 static TinyGPSPlus parser;
 
 void gps_init() {
+#ifdef PIN_GPS_VEXT
     pinMode(PIN_GPS_VEXT, OUTPUT);
 #if defined(HELTEC_V3) || defined(HELTEC_V4)
     digitalWrite(PIN_GPS_VEXT, LOW);    // Active LOW on ESP32 Heltec V3 and V4
 #else
     digitalWrite(PIN_GPS_VEXT, HIGH);   // Active HIGH on T114
 #endif
+#endif
 
+#ifdef PIN_GPS_STANDBY
     if (PIN_GPS_STANDBY >= 0) {
         pinMode(PIN_GPS_STANDBY, OUTPUT);
         digitalWrite(PIN_GPS_STANDBY, HIGH); // keep GPS awake
     }
+#endif
 
 #ifdef PIN_GPS_RST
     pinMode(PIN_GPS_RST, OUTPUT);
