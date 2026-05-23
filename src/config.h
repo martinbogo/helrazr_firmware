@@ -10,6 +10,16 @@
 // USER CONFIGURATION
 // -------------------------------------------------------------
 
+// --- GPS Module Type Configuration ---
+// Options:
+// 1 = L76K GNSS (Standard / Default for Heltec V4 and T114)
+// 2 = U-Blox M100 Mini (Custom UBX GPS)
+#define GPS_MODULE_TYPE_L76K 1
+#define GPS_MODULE_TYPE_M100 2
+
+// Set your active GPS module here:
+#define GPS_MODULE_TYPE GPS_MODULE_TYPE_M100
+
 // Uncomment this if you are using an external/custom GPS on non-standard pins.
 // By default, the firmware will use the standard pins for your board.
 #define USE_CUSTOM_GPS_PINS
