@@ -47,6 +47,8 @@ void gps_init() {
 
     delay(1000);
 
+#if defined(PIN_GPS_RX) && defined(PIN_GPS_TX)
+
 #ifdef CUSTOM_GPS_BAUD
     #define GPS_BAUD CUSTOM_GPS_BAUD
 #else
@@ -62,7 +64,6 @@ void gps_init() {
 
 #if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
     delay(100);
-    // Drain any buffered data before library init
     while (Serial1.available()) Serial1.read();
 
     parser = new SFE_UBLOX_GNSS_SERIAL();
@@ -77,15 +78,21 @@ void gps_init() {
         Serial.println(parser->getProtocolVersionHigh());
     }
 #endif
+
+#else
+    Serial.println("GPS: No GPS pins defined. GPS disabled.");
+#endif // PIN_GPS_RX && PIN_GPS_TX
 }
 
 void gps_update() {
+#if defined(PIN_GPS_RX) && defined(PIN_GPS_TX)
 #if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
     if (m100_ok) parser->checkUblox();
 #else
     while (Serial1.available()) {
         parser.encode(Serial1.read());
     }
+#endif
 #endif
 }
 
@@ -162,7 +169,7 @@ bool gps_is_m100_ok() {
 }
 
 void gps_cmd_raw() {
-#if HAS_GPS
+#if HAS_GPS && defined(PIN_GPS_RX) && defined(PIN_GPS_TX)
     Serial.println("--- GPS Raw (5s) ---");
     Serial.printf("Pins: RX=%d TX=%d  Baud: 9600\n", PIN_GPS_RX, PIN_GPS_TX);
     unsigned long start = millis();
@@ -182,7 +189,7 @@ void gps_cmd_raw() {
 }
 
 void gps_cmd_init() {
-#if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100 && HAS_GPS
+#if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100 && HAS_GPS && defined(PIN_GPS_RX) && defined(PIN_GPS_TX)
     Serial.println("--- M100 Init (debug) ---");
     Serial.printf("Pins: RX=%d TX=%d  Baud: %d\n", PIN_GPS_RX, PIN_GPS_TX, GPS_BAUD);
 
