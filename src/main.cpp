@@ -27,6 +27,8 @@
 #include "noise.h"
 #include "stats.h"
 #include "autotrack.h"
+#include "duty.h"
+#include "freqoffset.h"
 #include "ble_ota.h"
 
 AppMode currentMode = MODE_MENU;
@@ -64,6 +66,8 @@ const char* mode_name(AppMode m) {
         case MODE_NOISE:    return "Noise Floor";
         case MODE_SCANNER:  return "Scanner";
         case MODE_MONITOR:  return "Monitor";
+        case MODE_DUTY:     return "DutyCycle";
+        case MODE_FREQOFFSET: return "FreqOffset";
         case MODE_DECODER:  return "Decoder";
         case MODE_NODES:    return "Nodes";
         case MODE_STATS:    return "Stats";
@@ -85,6 +89,8 @@ static void enter_mode(AppMode m) {
         case MODE_NOISE:     lora_stop_listen(); noise_enter(); break;
         case MODE_SCANNER:   lora_stop_listen(); scanner_enter();  break;
         case MODE_MONITOR:   monitor_enter();  break;
+        case MODE_DUTY:      lora_stop_listen(); duty_enter(); break;
+        case MODE_FREQOFFSET:freqoffset_enter(); break;
         case MODE_DECODER:   decoder_enter();  break;
         case MODE_NODES:     nodetracker_enter(); break;
         case MODE_STATS:     stats_enter(); lora_start_listen(); break;
@@ -270,6 +276,16 @@ void loop() {
         return;
     }
 
+    if (currentMode == MODE_DUTY && button_short_pressed()) {
+        duty_short_press();
+        return;
+    }
+
+    if (currentMode == MODE_FREQOFFSET && button_short_pressed()) {
+        freqoffset_short_press();
+        return;
+    }
+
     if (currentMode == MODE_DECODER) {
         if (button_double_pressed()) {
             decoder_double_press();
@@ -307,6 +323,8 @@ void loop() {
         case MODE_NOISE:     noise_update();              break;
         case MODE_SCANNER:   scanner_update();            break;
         case MODE_MONITOR:   monitor_update();            break;
+        case MODE_DUTY:      duty_update();               break;
+        case MODE_FREQOFFSET:freqoffset_update();         break;
         case MODE_DECODER:   decoder_update();            break;
         case MODE_NODES:     nodetracker_mode_update();   break;
         case MODE_STATS:     stats_update();              break;

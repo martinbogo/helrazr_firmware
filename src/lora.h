@@ -45,3 +45,10 @@ void lora_requeue_packet();
 // Read instantaneous RSSI at a given frequency (for scanning)
 // Changes frequency temporarily; call lora_stop_listen() first if needed.
 float lora_scan_rssi(float mhz);
+
+// Set the radio bandwidth for RSSI scanning (persists until changed).
+// Call once before a series of lora_scan_rssi() calls.
+void lora_set_scan_bandwidth(float bwKHz);
+
+// Frequency error of the last received packet (Hz). Only valid after lora_poll_packet().
+float lora_last_freq_error();

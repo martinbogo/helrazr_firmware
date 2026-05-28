@@ -59,20 +59,13 @@ static void drawTable() {
 
     char title[32];
 #if HAS_OLED
-    // OLED: 128px wide, 21 chars max per row at 6px/char
-    // "Nodes (20)" = 10 chars = 60px -- short, leaves room
     snprintf(title, sizeof(title), "Nodes (%d)", nodeCount);
     display_draw_text_abs(0, 0, DISPLAY_CYAN, title);
     display_draw_hline(0, 9, 128, DISPLAY_GRAY);
-    // No column header -- use the space for data rows instead
-    // Row layout (3 rows): y=12, 22, 32  footer: y=55
-    // Format "%08lX %3d %4d %3s" = 21 chars max = 126px ✓
 #else
-    snprintf(title, sizeof(title), "Node Tracker  (%d seen)", nodeCount);
-    display_draw_text_abs(0, 15, DISPLAY_CYAN, title);
-    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
-    display_draw_text_small_abs(0,   30, DISPLAY_CYAN, "Node ID   Pkts  RSSI  Age");
-    display_draw_hline(0, 33, 240, 0x2104);
+    snprintf(title, sizeof(title), "Nodes (%d seen)", nodeCount);
+    display_draw_text_line(0, 15, DISPLAY_CYAN, title);
+    display_draw_hline(0, 20, 240, 0x2104);
 #endif
 
     uint32_t now = millis();
@@ -80,42 +73,53 @@ static void drawTable() {
     for (int i = 0; i < shown; i++) {
         const NodeEntry& n = nodes[scrollTop + i];
 #if HAS_OLED
-        int y = 12 + i * 10;   // y=12, 22, 32 -- last row bottom at y=39, footer at y=55
+        int y = 12 + i * 10;
 #else
-        int y = 44 + i * 16;
+        int y = 38 + i * 19;
 #endif
 
         char age[16];
         uint32_t secs = (now - n.lastSeenMs) / 1000;
-        if (secs < 60)        snprintf(age, sizeof(age), "%3lus", secs);
-        else if (secs < 3600) snprintf(age, sizeof(age), "%3lum", secs / 60);
-        else                  snprintf(age, sizeof(age), "%3luh", secs / 3600);
+        if (secs < 60)        snprintf(age, sizeof(age), "%lus", secs);
+        else if (secs < 3600) snprintf(age, sizeof(age), "%lum", secs / 60);
+        else                  snprintf(age, sizeof(age), "%luh", secs / 3600);
 
-        char row[40];
 #if HAS_OLED
-        // 8+1+3+1+4+1+3 = 21 chars = 126px ✓
+        char row[40];
         snprintf(row, sizeof(row), "%08lX %3d %4d %3s",
                  n.nodeId, n.packets, (int)n.lastRSSI, age);
-#else
-        snprintf(row, sizeof(row), "%08lX  %4d  %4d  %s",
-                 n.nodeId, n.packets, (int)n.lastRSSI, age);
-#endif
         display_draw_text_small_abs(0, y, DISPLAY_WHITE, row);
+#else
+        char nodeId[12], rssi[8];
+        snprintf(nodeId, sizeof(nodeId), "%08lX", n.nodeId);
+        snprintf(rssi, sizeof(rssi), "%d", (int)n.lastRSSI);
+
+        display_begin_line(y, false);
+        display_line_text(0, DISPLAY_WHITE, nodeId);
+        display_line_text(110, DISPLAY_WHITE, rssi);
+        display_line_text(175, DISPLAY_CYAN, age);
+        display_end_line();
+#endif
     }
+
+#if !HAS_OLED
+    for (int i = shown; i < ROWS_SHOWN; i++) {
+        display_begin_line(38 + i * 19, false);
+        display_end_line();
+    }
+#endif
 
     if (nodeCount == 0) {
 #if HAS_OLED
         display_draw_text_abs(10, 34, DISPLAY_CYAN, "No nodes yet");
 #else
-        display_draw_text_abs(30, 80, DISPLAY_CYAN, "No nodes heard yet");
+        display_draw_text_line(30, 80, DISPLAY_CYAN, "No nodes heard yet");
 #endif
     }
 
-    // Footer
     char foot[40];
     if (nodeCount > ROWS_SHOWN) {
 #if HAS_OLED
-        // "1-3 of 12  S:scroll" = 19 chars = 114px ✓
         snprintf(foot, sizeof(foot), "%d-%d of %d  S:scroll",
                  scrollTop + 1, scrollTop + min(ROWS_SHOWN, nodeCount - scrollTop), nodeCount);
 #else
@@ -124,7 +128,6 @@ static void drawTable() {
 #endif
     } else {
 #if HAS_OLED
-        // "3 nodes  L:back" = 15 chars = 90px ✓
         snprintf(foot, sizeof(foot), "%d node%s  L:back",
                  nodeCount, nodeCount == 1 ? "" : "s");
 #else
@@ -135,7 +138,7 @@ static void drawTable() {
 #if HAS_OLED
     display_draw_text_small_abs(0, 55, DISPLAY_CYAN, foot);
 #else
-    display_draw_text_small_abs(0, 133, DISPLAY_CYAN, foot);
+    display_draw_text_small_line(0, 133, DISPLAY_CYAN, foot);
 #endif
 }
 

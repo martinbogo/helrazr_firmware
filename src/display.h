@@ -63,4 +63,10 @@ void display_draw_text_tiny_abs(int x, int y, uint16_t color, const char* text);
 void display_fill_rect_abs(int x, int y, int w, int h, uint16_t color);
 void display_draw_text_small(int x, int y, uint16_t color, const char* text);
 
-
+// Flicker-free line rendering (canvas-buffered on TFT, direct draw on OLED)
+void display_begin_line(int y, bool smallFont = false);
+void display_line_text(int x, uint16_t color, const char* text);
+void display_line_fill_rect(int x, int w, uint16_t color);
+void display_end_line();
+void display_draw_text_line(int x, int y, uint16_t color, const char* text);
+void display_draw_text_small_line(int x, int y, uint16_t color, const char* text);

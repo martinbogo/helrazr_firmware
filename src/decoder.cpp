@@ -173,21 +173,25 @@ void decoder_double_press() {
 }
 
 static void drawLog() {
-    display_clear(true);
+    display_clear();
+
 #if HAS_OLED
     display_draw_text_abs(10, 0, DISPLAY_CYAN, "Meshtastic Decoder");
     display_draw_hline(0, 10, 128, DISPLAY_GRAY);
 #else
-    display_draw_text_abs(30, 15, DISPLAY_CYAN, "Meshtastic Decoder");
-    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
+    display_draw_text_line(30, 15, DISPLAY_CYAN, "Meshtastic Decoder");
 #endif
 
     if (totalPkts == 0) {
 #if HAS_OLED
         display_draw_text_abs(5, 30, DISPLAY_CYAN, "Waiting for packets...");
 #else
-        display_draw_text_abs(20, 75, DISPLAY_CYAN, "Waiting for packets...");
+        display_draw_text_line(20, 55, DISPLAY_CYAN, "Waiting for packets...");
+        display_draw_text_line(0, 75, DISPLAY_BLACK, "");
+        display_draw_text_line(0, 95, DISPLAY_BLACK, "");
+        display_draw_text_small_line(0, 125, DISPLAY_BLACK, "");
 #endif
+        display_draw_hline(0, 20, 240, DISPLAY_GRAY);
         display_update_buffer();
         return;
     }
@@ -197,7 +201,6 @@ static void drawLog() {
     char line[64];
 
     if (detailMode) {
-        // Deep Dive Mode: Show Full Text Payload
         int maxPkt = totalPkts < LOG_SIZE ? totalPkts : LOG_SIZE;
         uint32_t age = (millis() - e.timeMs) / 1000;
 
@@ -206,75 +209,74 @@ static void drawLog() {
         int MAX_LINES = 3;
         int startY = 34;
         int lineH = 10;
+
+        snprintf(line, sizeof(line), "Msg %d/%d (%lus)", viewOffset + 1, maxPkt, age);
+        display_draw_text_small_abs(0, 14, DISPLAY_YELLOW, line);
+        if (!e.isCleartext) {
+            display_draw_text_small_abs(0, 24, DISPLAY_WHITE, "<Encrypted/Unknown>");
+        } else {
+            snprintf(line, sizeof(line), "<%s> P%d/%d", getPortName(e.portNum), payloadPage + 1,
+                     e.hasText ? ((strlen(e.text) + MAX_CHARS_PER_LINE * MAX_LINES - 1) / (MAX_CHARS_PER_LINE * MAX_LINES)) : 1);
+            display_draw_text_small_abs(0, 24, DISPLAY_CYAN, line);
+        }
 #else
         int MAX_CHARS_PER_LINE = 39;
         int MAX_LINES = 5;
-        int startY = 72;
+        int startY = 60;
         int lineH = 12;
+
+        snprintf(line, sizeof(line), "Message %d of %d  (-%lus)", viewOffset + 1, maxPkt, age);
+        display_draw_text_line(0, 30, DISPLAY_YELLOW, line);
+        if (!e.isCleartext) {
+            display_draw_text_small_line(0, 48, DISPLAY_WHITE, "<Encrypted / Unknown Data>");
+        } else {
+            int textLen = e.hasText ? strlen(e.text) : 0;
+            int charsPerPage = MAX_CHARS_PER_LINE * MAX_LINES;
+            int totalPages = e.hasText ? ((textLen + charsPerPage - 1) / charsPerPage) : 1;
+            if (totalPages == 0) totalPages = 1;
+            if (payloadPage >= totalPages) payloadPage = 0;
+            snprintf(line, sizeof(line), "<%s Packet>  [Page %d/%d]", getPortName(e.portNum), payloadPage + 1, totalPages);
+            display_draw_text_small_line(0, 48, DISPLAY_CYAN, line);
+        }
 #endif
 
         int textLen = e.hasText ? strlen(e.text) : 0;
         int charsPerPage = MAX_CHARS_PER_LINE * MAX_LINES;
         int totalPages = e.hasText ? ((textLen + charsPerPage - 1) / charsPerPage) : 1;
         if (totalPages == 0) totalPages = 1;
-        
-        if (payloadPage >= totalPages) payloadPage = 0; // Wrap around pagination
+        if (payloadPage >= totalPages) payloadPage = 0;
 
-#if HAS_OLED
-        snprintf(line, sizeof(line), "Msg %d/%d (%lus)", viewOffset + 1, maxPkt, age);
-        display_draw_text_small_abs(0, 14, DISPLAY_YELLOW, line);
-
-        if (!e.isCleartext) {
-            display_draw_text_small_abs(0, 24, DISPLAY_WHITE, "<Encrypted/Unknown>");
-        } else {
-            snprintf(line, sizeof(line), "<%s> P%d/%d", getPortName(e.portNum), payloadPage + 1, totalPages);
-            display_draw_text_small_abs(0, 24, DISPLAY_CYAN, line);
-        }
-#else
-        snprintf(line, sizeof(line), "Message %d of %d  (-%lus)", viewOffset + 1, maxPkt, age);
-        display_draw_text_abs(0, 30, DISPLAY_YELLOW, line);
-
-        if (!e.isCleartext) {
-            display_draw_text_small_abs(0, 48, DISPLAY_WHITE, "<Encrypted / Unknown Data>");
-        } else {
-            snprintf(line, sizeof(line), "<%s Packet>  [Page %d/%d]", getPortName(e.portNum), payloadPage + 1, totalPages);
-            display_draw_text_small_abs(0, 48, DISPLAY_CYAN, line);
-        }
-#endif
-
-        if (e.hasText) {
-            int startIdx = payloadPage * charsPerPage;
-            for (int i = 0; i < MAX_LINES; i++) {
-                int lineStart = startIdx + i * MAX_CHARS_PER_LINE;
-                if (lineStart >= textLen) break;
-                
+        for (int i = 0; i < MAX_LINES; i++) {
+            int lineStart = payloadPage * charsPerPage + i * MAX_CHARS_PER_LINE;
+            if (e.hasText && lineStart < textLen) {
                 int len = textLen - lineStart;
                 if (len > MAX_CHARS_PER_LINE) len = MAX_CHARS_PER_LINE;
-                
-                char lineBuf[42]; // Max 39 + null
+                char lineBuf[42];
                 memcpy(lineBuf, e.text + lineStart, len);
                 lineBuf[len] = '\0';
-                
+#if HAS_OLED
                 display_draw_text_small_abs(0, startY + i * lineH, DISPLAY_WHITE, lineBuf);
+#else
+                display_draw_text_small_line(0, startY + i * lineH, DISPLAY_WHITE, lineBuf);
+#endif
+            } else {
+#if !HAS_OLED
+                display_draw_text_small_line(0, startY + i * lineH, DISPLAY_BLACK, "");
+#endif
             }
         }
     } else {
-        // Ticker / Metadata mode
         int maxPkt = totalPkts < LOG_SIZE ? totalPkts : LOG_SIZE;
         uint32_t age = (millis() - e.timeMs) / 1000;
 #if HAS_OLED
         snprintf(line, sizeof(line), "Pkt %d/%d (%lus) %s", viewOffset + 1, maxPkt, age, (viewOffset == 0) ? "[LIVE]" : "");
         display_draw_text_small_abs(0, 14, DISPLAY_GREEN, line);
-
         snprintf(line, sizeof(line), "Frm: %08lX", e.srcNode);
         display_draw_text_small_abs(0, 23, DISPLAY_WHITE, line);
-        
         snprintf(line, sizeof(line), "To:  %08lX", e.destNode);
         display_draw_text_small_abs(0, 32, DISPLAY_WHITE, line);
-
         snprintf(line, sizeof(line), "R:%d S:%d H:%d", (int)e.rssi, (int)e.snr, e.hopLimit);
         display_draw_text_small_abs(0, 41, DISPLAY_YELLOW, line);
-
         if (e.isCleartext) {
             snprintf(line, sizeof(line), "Port:%s (DblClk)", getPortName(e.portNum));
             display_draw_text_small_abs(0, 50, DISPLAY_CYAN, line);
@@ -283,25 +285,24 @@ static void drawLog() {
         }
 #else
         snprintf(line, sizeof(line), "Packet %d / %d  (-%lus)  %s", viewOffset + 1, maxPkt, age, (viewOffset == 0) ? "[LIVE UPDATE]" : "[PAUSED]");
-        display_draw_text_abs(0, 32, DISPLAY_GREEN, line);
-
+        display_draw_text_line(0, 32, DISPLAY_GREEN, line);
         snprintf(line, sizeof(line), "From: %08lX -> %08lX", e.srcNode, e.destNode);
-        display_draw_text_abs(0, 55, DISPLAY_WHITE, line);
-
+        display_draw_text_line(0, 55, DISPLAY_WHITE, line);
         snprintf(line, sizeof(line), "Hop:%d   RSSI:%d   SNR:%d", e.hopLimit, (int)e.rssi, (int)e.snr);
-        display_draw_text_abs(0, 78, DISPLAY_YELLOW, line);
-
+        display_draw_text_line(0, 78, DISPLAY_YELLOW, line);
         if (e.isCleartext) {
             snprintf(line, sizeof(line), "Port: %s >> [Dbl-Click]", getPortName(e.portNum));
-            display_draw_text_abs(0, 101, DISPLAY_CYAN, line);
+            display_draw_text_line(0, 101, DISPLAY_CYAN, line);
         } else {
-            display_draw_text_abs(0, 101, DISPLAY_GRAY, "Payload: Encrypted >> [Dbl-Click]");
+            display_draw_text_line(0, 101, DISPLAY_GRAY, "Payload: Encrypted >> [Dbl-Click]");
         }
-        
-        display_draw_text_small_abs(0, 125, DISPLAY_GRAY, "Single-Clk: Paging  |  Double-Clk: Read Message");
+        display_draw_text_small_line(0, 125, DISPLAY_GRAY, "Single-Clk: Paging  |  Double-Clk: Read Message");
 #endif
     }
 
+#if !HAS_OLED
+    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
+#endif
     display_update_buffer();
 }
 
@@ -312,14 +313,6 @@ void decoder_enter() {
     memset(log_buf, 0, sizeof(log_buf));
     lora_apply_channel(0);
     lora_start_listen();
-    display_clear(true);
-#if HAS_OLED
-    display_draw_text_abs(10, 0, DISPLAY_CYAN, "Meshtastic Decoder");
-    display_draw_hline(0, 10, 128, DISPLAY_GRAY);
-#else
-    display_draw_text_abs(30, 15, DISPLAY_CYAN, "Meshtastic Decoder");
-    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
-#endif
     drawLog();
 }
 

@@ -21,6 +21,8 @@ static const char* LABELS[] = {
     "Noise",
     "Scanner",
     "Monitor",
+    "DutyCycle",
+    "FreqOffset",
     "Decoder",
     "Nodes",
     "Stats",
@@ -55,7 +57,7 @@ void menu_draw() {
     int page = (selected - 1) / ITEMS_PER_PAGE;
 
 #if HAS_OLED
-    display_clear(); // clear buffer
+    display_clear();
 #else
     if (page != last_page) {
         display_clear(true);
@@ -67,7 +69,7 @@ void menu_draw() {
     display_draw_text_abs(25, 0, DISPLAY_CYAN, "Select Mode");
     display_draw_hline(0, 10, 128, DISPLAY_GRAY);
 #else
-    display_draw_text_abs(55, 15, DISPLAY_CYAN, "Select Mode");
+    display_draw_text_line(55, 15, DISPLAY_CYAN, "Select Mode");
     display_draw_hline(0, 20, 240, DISPLAY_GRAY);
 #endif
 
@@ -75,40 +77,49 @@ void menu_draw() {
     int endIndex = startIndex + ITEMS_PER_PAGE - 1;
     if (endIndex >= MODE_COUNT) endIndex = MODE_COUNT - 1;
 
-    for (int i = startIndex; i <= endIndex; i++) {
-        int displayIdx = i - startIndex;
-        int col = displayIdx / MAX_ROWS;
-        int row = displayIdx % MAX_ROWS;
+    for (int row = 0; row < MAX_ROWS; row++) {
 #if HAS_OLED
-        int x = col * 64 + 2;
         int y = 14 + row * 9;
-        
-        if (i == selected) {
-            display_fill_rect_abs(col * 64, y - 1, 62, 9, DISPLAY_CYAN);
-            display_draw_text_small_abs(x, y, DISPLAY_BLACK, LABELS[i]);
-        } else {
-            display_draw_text_small_abs(x, y, DISPLAY_WHITE, LABELS[i]);
+        for (int col = 0; col < 2; col++) {
+            int i = startIndex + col * MAX_ROWS + row;
+            int x = col * 64 + 2;
+            if (i <= endIndex) {
+                if (i == selected) {
+                    display_fill_rect_abs(col * 64, y - 1, 62, 9, DISPLAY_CYAN);
+                    display_draw_text_small_abs(x, y, DISPLAY_BLACK, LABELS[i]);
+                } else {
+                    display_draw_text_small_abs(x, y, DISPLAY_WHITE, LABELS[i]);
+                }
+            }
         }
 #else
-        int x = col * 120 + 4;
         int y = 36 + row * 17;
-        
-        if (i == selected) {
-            display_fill_rect_abs(col * 120, y - 13, 118, 16, DISPLAY_CYAN);
-            display_draw_text_abs(x, y, DISPLAY_BLACK, LABELS[i]);
-        } else {
-            display_fill_rect_abs(col * 120, y - 13, 118, 16, DISPLAY_BLACK);
-            display_draw_text_abs(x, y, DISPLAY_WHITE, LABELS[i]);
+        display_begin_line(y, false);
+        for (int col = 0; col < 2; col++) {
+            int i = startIndex + col * MAX_ROWS + row;
+            int cx = col * 120;
+            if (i <= endIndex) {
+                if (i == selected) {
+                    display_line_fill_rect(cx, 118, DISPLAY_CYAN);
+                    display_line_text(cx + 4, DISPLAY_BLACK, LABELS[i]);
+                } else {
+                    display_line_fill_rect(cx, 118, DISPLAY_BLACK);
+                    display_line_text(cx + 4, DISPLAY_WHITE, LABELS[i]);
+                }
+            } else {
+                display_line_fill_rect(cx, 118, DISPLAY_BLACK);
+            }
         }
+        display_end_line();
 #endif
     }
-    
+
 #if HAS_OLED
     display_draw_text_small_abs(0, 56, DISPLAY_CYAN, "S:nx  D:pv  L:sel");
 #else
-    display_draw_text_small_abs(4, 126, DISPLAY_CYAN, "S:nxt  D:prv  L:sel");
+    display_draw_text_small_line(4, 126, DISPLAY_CYAN, "S:nxt  D:prv  L:sel");
 #endif
-    
+
     display_update_buffer();
 }
 

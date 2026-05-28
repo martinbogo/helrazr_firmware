@@ -29,6 +29,16 @@ Adafruit_SSD1306 tft(128, 64, &Wire, PIN_OLED_RST);
 
 static bool powered = false;
 
+#if HAS_TFT
+static GFXcanvas16 _tftLine(240, 18);
+static int _tftLineTopY = 0;
+static int _tftLineH = 18;
+static bool _tftLineSmall = false;
+#else
+static int _lineOrigY = 0;
+static bool _lineIsSmall = false;
+#endif
+
 static void fmtFloat(char* buf, int buflen, float val, int width, int prec) {
     String s(val, prec);
     while ((int)s.length() < width) s = " " + s;
@@ -120,31 +130,51 @@ void display_update(float lat, float lon, int sats, bool gps_fix,
     char buf[40];
 
 #if HAS_TFT
-    int y = 15;
     const int lineH = 18;
+    int y = 2;
+
+    auto drawLine = [&](int yPos, uint16_t color, const char* text) {
+        _tftLine.fillScreen(DISPLAY_BLACK);
+        _tftLine.setFont(&FreeSans9pt7b);
+        _tftLine.setTextSize(1);
+        _tftLine.setTextColor(color);
+        _tftLine.setCursor(0, 13);
+        _tftLine.print(text);
+        tft.drawRGBBitmap(0, yPos, _tftLine.getBuffer(), 240, 18);
+    };
+
+    auto drawLineTwoCol = [&](int yPos, uint16_t c1, const char* t1,
+                               uint16_t c2, const char* t2, int x2) {
+        _tftLine.fillScreen(DISPLAY_BLACK);
+        _tftLine.setFont(&FreeSans9pt7b);
+        _tftLine.setTextSize(1);
+        _tftLine.setTextColor(c1);
+        _tftLine.setCursor(0, 13);
+        _tftLine.print(t1);
+        _tftLine.setTextColor(c2);
+        _tftLine.setCursor(x2, 13);
+        _tftLine.print(t2);
+        tft.drawRGBBitmap(0, yPos, _tftLine.getBuffer(), 240, 18);
+    };
 
 #if HAS_GPS
-    tft.fillRect(0, y - 13, 240, lineH, DISPLAY_BLACK);
     snprintf(buf, sizeof(buf), "GPS: %-3s  Sats: %d  Rx: %lu", gps_fix ? "3D" : "No", sats, gps_chars_processed());
-    display_draw_text_abs(0, y, DISPLAY_GREEN, buf);
+    drawLine(y, DISPLAY_GREEN, buf);
 #endif
     y += lineH;
 
-    tft.fillRect(0, y - 13, 240, lineH, DISPLAY_BLACK);
     char rssibuf[8];
     fmtFloat(rssibuf, sizeof(rssibuf), lora_rssi, 5, 1);
     snprintf(buf, sizeof(buf), "LoRa %s  RSSI: %s", lora_listening ? "RX" : "--", rssibuf);
-    display_draw_text_abs(0, y, DISPLAY_YELLOW, buf);
+    drawLine(y, DISPLAY_YELLOW, buf);
     y += lineH;
 
-    tft.fillRect(0, y - 13, 240, lineH, DISPLAY_BLACK);
     char snrbuf[8];
     fmtFloat(snrbuf, sizeof(snrbuf), lora_snr, 4, 1);
     snprintf(buf, sizeof(buf), "SNR: %s   Pkts: %d", snrbuf, lora_packets);
-    display_draw_text_abs(0, y, DISPLAY_WHITE, buf);
+    drawLine(y, DISPLAY_WHITE, buf);
     y += lineH;
 
-    tft.fillRect(0, y - 13, 240, lineH, DISPLAY_BLACK);
     char batbuf[7];
     fmtFloat(batbuf, sizeof(batbuf), bat_voltage, 4, 2);
     snprintf(buf, sizeof(buf), "Bat: %sV", batbuf);
@@ -152,11 +182,11 @@ void display_update(float lat, float lon, int sats, bool gps_fix,
     if (bat_voltage >= 3.7f) bat_color = DISPLAY_GREEN;
     else if (bat_voltage >= 3.1f) bat_color = DISPLAY_YELLOW;
     else bat_color = DISPLAY_RED;
-    display_draw_text_abs(0, y, bat_color, buf);
 
     uint32_t h = uptime_s / 3600, m = (uptime_s % 3600) / 60, s2 = uptime_s % 60;
-    snprintf(buf, sizeof(buf), "Up: %02lu:%02lu:%02lu", h, m, s2);
-    display_draw_text_abs(120, y, DISPLAY_WHITE, buf);
+    char ubuf[20];
+    snprintf(ubuf, sizeof(ubuf), "Up: %02lu:%02lu:%02lu", h, m, s2);
+    drawLineTwoCol(y, bat_color, buf, DISPLAY_WHITE, ubuf, 120);
 
 #else  // OLED
     int y = 0;
@@ -337,4 +367,65 @@ void display_draw_text_tiny_abs(int x, int y, uint16_t color, const char* text) 
 
 void display_fill_rect_abs(int x, int y, int w, int h, uint16_t color) {
     tft.fillRect(x, y, w, h, color);
+}
+
+void display_begin_line(int y, bool smallFont) {
+#if HAS_TFT
+    _tftLineSmall = smallFont;
+    _tftLineH = smallFont ? 10 : 18;
+    _tftLineTopY = smallFont ? y : (y - 13);
+    _tftLine.fillScreen(DISPLAY_BLACK);
+#else
+    _lineOrigY = y;
+    _lineIsSmall = smallFont;
+#endif
+}
+
+void display_line_text(int x, uint16_t color, const char* text) {
+#if HAS_TFT
+    if (_tftLineSmall) {
+        _tftLine.setFont(NULL);
+        _tftLine.setTextSize(1);
+        _tftLine.setTextColor(color);
+        _tftLine.setCursor(x, 1);
+    } else {
+        _tftLine.setFont(&FreeSans9pt7b);
+        _tftLine.setTextSize(1);
+        _tftLine.setTextColor(color);
+        _tftLine.setCursor(x, 13);
+    }
+    _tftLine.print(text);
+#else
+    if (_lineIsSmall)
+        display_draw_text_small_abs(x, _lineOrigY, color, text);
+    else
+        display_draw_text_abs(x, _lineOrigY, color, text);
+#endif
+}
+
+void display_line_fill_rect(int x, int w, uint16_t color) {
+#if HAS_TFT
+    _tftLine.fillRect(x, 0, w, _tftLineH, color);
+#else
+    int h = _lineIsSmall ? 8 : 14;
+    tft.fillRect(x, _lineOrigY, w, h, color);
+#endif
+}
+
+void display_end_line() {
+#if HAS_TFT
+    tft.drawRGBBitmap(0, _tftLineTopY, _tftLine.getBuffer(), 240, _tftLineH);
+#endif
+}
+
+void display_draw_text_line(int x, int y, uint16_t color, const char* text) {
+    display_begin_line(y, false);
+    display_line_text(x, color, text);
+    display_end_line();
+}
+
+void display_draw_text_small_line(int x, int y, uint16_t color, const char* text) {
+    display_begin_line(y, true);
+    display_line_text(x, color, text);
+    display_end_line();
 }

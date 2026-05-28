@@ -27,6 +27,7 @@ static bool     listening   = false;
 static volatile bool rxFlag = false;
 static float    lastRSSI    = 0;
 static float    lastSNR     = 0;
+static float    lastFreqErr = 0;
 static int      packetCount = 0;
 static float    curFreq     = 915.0f;
 static float    curBW       = 125.0f;
@@ -72,6 +73,7 @@ void lora_update() {
         pktLen      = radio.getPacketLength();
         lastRSSI    = radio.getRSSI();
         lastSNR     = radio.getSNR();
+        lastFreqErr = radio.getFrequencyError();
         lastRxMs    = millis();
         packetCount++;
         packetReady = true;
@@ -158,6 +160,7 @@ void lora_apply_channel(int idx) {
 }
 
 uint32_t lora_last_rx_ms()  { return lastRxMs; }
+float lora_last_freq_error() { return lastFreqErr; }
 
 void lora_requeue_packet() { packetReady = true; }
 
@@ -168,15 +171,28 @@ float lora_scan_rssi(float mhz) {
     radio.setFrequency(mhz);
     radio.startReceive();
     delayMicroseconds(2500);
-    float rssi = radio.getRSSI(false);  // instantaneous RSSI
+
+    // Take multiple samples and return the peak to catch transient signals
+    float best = -200.0f;
+    for (int i = 0; i < 3; i++) {
+        float rssi = radio.getRSSI(false);
+        if (rssi > best) best = rssi;
+        if (i < 2) delayMicroseconds(500);
+    }
     radio.standby();
 
     if (was) {
-        // Restore original frequency and restart
         radio.setFrequency(curFreq);
         radio.setBandwidth(curBW);
         radio.setSpreadingFactor(curSF);
         radio.startReceive();
     }
-    return rssi;
+    return best;
+}
+
+void lora_set_scan_bandwidth(float bwKHz) {
+    bool was = listening;
+    if (was) radio.standby();
+    radio.setBandwidth(bwKHz);
+    if (was) radio.startReceive();
 }

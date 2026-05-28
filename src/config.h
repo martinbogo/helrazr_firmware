@@ -18,23 +18,20 @@
 #define GPS_MODULE_TYPE_M100 2
 
 // Set your active GPS module here:
-#define GPS_MODULE_TYPE GPS_MODULE_TYPE_M100
+#define GPS_MODULE_TYPE GPS_MODULE_TYPE_L76K
 
-// Uncomment this if you are using an external/custom GPS on non-standard pins.
-// By default, the firmware will use the standard pins for your board.
-#define USE_CUSTOM_GPS_PINS
+// --- Custom GPS pin routing (uncomment and edit for non-default wiring) ---
+// #define USE_CUSTOM_GPS_PINS
+// #ifdef USE_CUSTOM_GPS_PINS
+// #define CUSTOM_GPS_RX        8
+// #define CUSTOM_GPS_TX        7
+// #define CUSTOM_GPS_BAUD      115200
+// #endif // USE_CUSTOM_GPS_PINS
 
-#ifdef USE_CUSTOM_GPS_PINS
-// Define your custom GPS pins below. Example is for the M100 u-blox on T114.
-// Note: On nRF52 (like T114), avoid using pins reserved for QSPI (e.g. 7 or 8 depending on hardware)
-#define CUSTOM_GPS_RX        8
-#define CUSTOM_GPS_TX        7
-#define CUSTOM_GPS_BAUD      115200
-
-// Uncomment and set these if your GPS module supports them:
-// #define CUSTOM_GPS_VEXT      21
-// #define CUSTOM_GPS_STANDBY   34
-// #define CUSTOM_GPS_PPS       36
-// #define CUSTOM_GPS_RST       38
-#endif // USE_CUSTOM_GPS_PINS
+// --- Example: T114 with external M100 u-blox ---
+// #define GPS_MODULE_TYPE GPS_MODULE_TYPE_M100
+// #define USE_CUSTOM_GPS_PINS
+// #define CUSTOM_GPS_RX        8
+// #define CUSTOM_GPS_TX        7
+// #define CUSTOM_GPS_BAUD      115200
 

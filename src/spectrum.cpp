@@ -71,6 +71,7 @@ void spectrum_short_press() {
 
 void spectrum_enter() {
     currentMode = MODE_SWEEP;
+    lora_set_scan_bandwidth(250.0f);
     display_clear();
 #if HAS_OLED
     display_draw_text_abs(5, 0, DISPLAY_CYAN, "Spectrum 902-928 MHz");
@@ -154,8 +155,7 @@ void spectrum_update() {
     display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 4, DISPLAY_WHITE, peak);
 #else
     snprintf(peak, sizeof(peak), "%sPeak: %.1fMHz  %ddBm", modeStr, peakFreq, (int)peakRSSI);
-    display_fill_rect_abs(0, GRAPH_Y + GRAPH_H + 15, GRAPH_W, 15, DISPLAY_BLACK);
-    display_draw_text_abs(0, GRAPH_Y + GRAPH_H + 28, DISPLAY_WHITE, peak);
+    display_draw_text_line(0, GRAPH_Y + GRAPH_H + 28, DISPLAY_WHITE, peak);
 #endif
 
     display_update_buffer();

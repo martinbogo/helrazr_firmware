@@ -70,52 +70,43 @@ static int packetsPerMinute() {
 }
 
 static void drawStats() {
-#if HAS_OLED
-    display_clear(); // clear buffer
-#endif
+    display_clear();
+
+    char buf[40];
+
 #if HAS_OLED
     display_draw_text_abs(20, 0, DISPLAY_CYAN, statsPage == 0 ? "Stats: Activity" : "Stats: Top Nodes");
     display_draw_hline(0, 10, 128, DISPLAY_GRAY);
 #else
-    display_draw_text_abs(50, 15, DISPLAY_CYAN, statsPage == 0 ? "Stats: Activity" : "Stats: Top Nodes");
-    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
+    display_draw_text_line(50, 15, DISPLAY_CYAN, statsPage == 0 ? "Stats: Activity" : "Stats: Top Nodes");
 #endif
 
-    char buf[40];
-
     if (statsPage == 0) {
-        // PAGE 0: ACTIVITY GRAPH
         int ppm = packetsPerMinute();
-        
+
 #if HAS_OLED
         snprintf(buf, sizeof(buf), "Total: %-4lu   /m: %-3d", totalPackets, ppm);
         display_draw_text_abs(0, 12, DISPLAY_WHITE, buf);
-
         static const int GX = 0, GY = 25, GW = 128, GH = 25;
+        display_fill_rect_abs(GX, GY, GW, GH, DISPLAY_BLACK);
 #else
         snprintf(buf, sizeof(buf), "Total: %lu   Last min: %d", totalPackets, ppm);
-        display_fill_rect_abs(0, 16, 240, 18, DISPLAY_BLACK);
-        display_draw_text_abs(0, 32, DISPLAY_WHITE, buf);
-
+        display_draw_text_line(0, 32, DISPLAY_WHITE, buf);
         static const int GX = 0, GY = 55, GW = 240, GH = 60;
-#endif
-#if HAS_OLED
         display_fill_rect_abs(GX, GY, GW, GH, DISPLAY_BLACK);
 #endif
         display_draw_hline(GX, GY + GH, GW, DISPLAY_GRAY);
 
-        // Find max bucket for scaling
         uint8_t maxVal = 1;
         for (int i = 0; i < 30; i++) {
             uint8_t v = buckets[(bucketHead - i + BUCKETS) % BUCKETS];
             if (v > maxVal) maxVal = v;
         }
-        // Proportional bar placement fills the full graph width exactly
         for (int i = 0; i < 30; i++) {
             uint8_t v = buckets[(bucketHead - i + BUCKETS) % BUCKETS];
             int h = (int)((float)v / maxVal * GH);
             if (h > 0) {
-                int bar_idx = 29 - i;  // bar_idx=0 at left (oldest), bar_idx=29 at right (newest)
+                int bar_idx = 29 - i;
                 int x0 = GX + (bar_idx       * GW) / 30;
                 int x1 = GX + ((bar_idx + 1) * GW) / 30;
                 int bw = x1 - x0 - 1;
@@ -129,12 +120,12 @@ static void drawStats() {
         display_draw_text_small_abs(0, GY + GH + 2, DISPLAY_CYAN, "now");
         display_draw_text_small_abs(110, GY + GH + 2, DISPLAY_CYAN, "5m");
 #else
-        display_draw_text_abs(0, GY + GH + 6, DISPLAY_CYAN, "now");
-        display_draw_text_abs(200, GY + GH + 6, DISPLAY_CYAN, "5min");
+        display_begin_line(GY + GH + 6, false);
+        display_line_text(0, DISPLAY_CYAN, "now");
+        display_line_text(200, DISPLAY_CYAN, "5min");
+        display_end_line();
 #endif
     } else {
-        // PAGE 1: TOP NODES
-        // Sort topNodes by count
         for (int i = 1; i < nodeStatCount; i++) {
             NodeStat k = topNodes[i]; int j = i - 1;
             while (j >= 0 && topNodes[j].count < k.count) { topNodes[j+1] = topNodes[j]; j--; }
@@ -154,19 +145,20 @@ static void drawStats() {
             display_draw_text_small_abs(20, 30, DISPLAY_CYAN, "No packets yet");
         }
 #else
-        display_draw_text_abs(0, 32, DISPLAY_CYAN, "Node ID   Pkts  AvgRSSI");
+        display_draw_text_line(0, 32, DISPLAY_CYAN, "Node ID   Pkts  AvgRSSI");
         display_draw_hline(0, 48, 240, DISPLAY_GRAY);
-        
-        display_fill_rect_abs(0, 49, 240, 86, DISPLAY_BLACK); // Clear the node list area
 
         int shown = min(nodeStatCount, TOP_NODES);
         for (int i = 0; i < shown; i++) {
             snprintf(buf, sizeof(buf), "%08lX  %4d  %4d dBm",
                      topNodes[i].id, topNodes[i].count, (int)topNodes[i].avgRSSI);
-            display_draw_text_abs(0, 68 + i * 18, i == 0 ? DISPLAY_WHITE : (uint16_t)DISPLAY_CYAN, buf);
+            display_draw_text_line(0, 68 + i * 18, i == 0 ? DISPLAY_WHITE : (uint16_t)DISPLAY_CYAN, buf);
+        }
+        for (int i = shown; i < TOP_NODES; i++) {
+            display_draw_text_line(0, 68 + i * 18, DISPLAY_BLACK, "");
         }
         if (nodeStatCount == 0) {
-            display_draw_text_abs(50, 68, DISPLAY_CYAN, "No packets yet");
+            display_draw_text_line(50, 68, DISPLAY_CYAN, "No packets yet");
         }
 #endif
     }

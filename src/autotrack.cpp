@@ -49,10 +49,10 @@ static void doScan() {
 
 static void drawScreen() {
     display_clear();
+    char buf[40];
 #if HAS_OLED
     display_draw_text_abs(15, 0, DISPLAY_CYAN, "Auto Freq Tracker");
     display_draw_hline(0, 10, 128, DISPLAY_GRAY);
-    char buf[40];
     snprintf(buf, sizeof(buf), "Freq: %.2f MHz", lockedFreq);
     display_draw_text_small_abs(0, 15, DISPLAY_GREEN, buf);
     snprintf(buf, sizeof(buf), "RSSI: %ddBm", (int)lockedRSSI);
@@ -65,21 +65,19 @@ static void drawScreen() {
     snprintf(buf, sizeof(buf), "Nodes: %d", nodetracker_count());
     display_draw_text_small_abs(0, 55, DISPLAY_CYAN, buf);
 #else
-    display_draw_text_abs(35, 15, DISPLAY_CYAN, "Auto Freq Tracker");
-    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
-    char buf[40];
+    display_draw_text_line(35, 15, DISPLAY_CYAN, "Auto Freq Tracker");
     snprintf(buf, sizeof(buf), "Freq: %.3f MHz", lockedFreq);
-    display_draw_text_abs(0, 42, DISPLAY_GREEN, buf);
+    display_draw_text_line(0, 42, DISPLAY_GREEN, buf);
     snprintf(buf, sizeof(buf), "RSSI: %d dBm", (int)lockedRSSI);
-    display_draw_text_abs(0, 60, DISPLAY_YELLOW, buf);
+    display_draw_text_line(0, 60, DISPLAY_YELLOW, buf);
     snprintf(buf, sizeof(buf), "Packets: %d", totalPkts);
-    display_draw_text_abs(0, 78, DISPLAY_WHITE, buf);
+    display_draw_text_line(0, 78, DISPLAY_WHITE, buf);
     uint32_t remaining = RESCAN_MS - min((uint32_t)(millis() - lastRescanMs),  (uint32_t)RESCAN_MS);
     snprintf(buf, sizeof(buf), "Rescan in: %lus", remaining / 1000);
-    display_draw_text_abs(0, 96, DISPLAY_CYAN, buf);
-    int nodeCount = nodetracker_count();
-    snprintf(buf, sizeof(buf), "Nodes heard: %d", nodeCount);
-    display_draw_text_abs(0, 114, DISPLAY_CYAN, buf);
+    display_draw_text_line(0, 96, DISPLAY_CYAN, buf);
+    snprintf(buf, sizeof(buf), "Nodes heard: %d", nodetracker_count());
+    display_draw_text_line(0, 114, DISPLAY_CYAN, buf);
+    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
 #endif
 }
 
@@ -121,14 +119,12 @@ void autotrack_update() {
         display_fill_rect_abs(0, 45, 128, 8, DISPLAY_BLACK);
         display_draw_text_small_abs(0, 45, DISPLAY_CYAN, "Rescanning...");
 #else
-        display_fill_rect_abs(0, 88, 240, 16, DISPLAY_BLACK);
-        display_draw_text_abs(30, 100, DISPLAY_CYAN, "Rescanning...");
+        display_draw_text_line(0, 96, DISPLAY_CYAN, "Rescanning...");
 #endif
         doScan();
         drawScreen();
     }
 
-    // Update countdown every second without full redraw
     static uint32_t lastCountdown = 0;
     if (millis() - lastCountdown > 1000) {
         lastCountdown = millis();
@@ -140,8 +136,7 @@ void autotrack_update() {
         display_draw_text_small_abs(0, 45, DISPLAY_CYAN, buf);
 #else
         snprintf(buf, sizeof(buf), "Rescan in: %lus  ", remaining / 1000);
-        display_fill_rect_abs(0, 86, 200, 16, DISPLAY_BLACK);
-        display_draw_text_abs(0, 96, DISPLAY_CYAN, buf);
+        display_draw_text_line(0, 96, DISPLAY_CYAN, buf);
 #endif
     }
 }

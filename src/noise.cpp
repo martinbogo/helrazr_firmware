@@ -100,7 +100,7 @@ void noise_update() {
     display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 4, DISPLAY_WHITE, stat);
 #else
     snprintf(stat, sizeof(stat), "Cur: %d dBm        ", (int)rssi);
-    display_draw_text_small_abs(0, GRAPH_Y + GRAPH_H + 17, DISPLAY_WHITE, stat);
+    display_draw_text_small_line(0, GRAPH_Y + GRAPH_H + 17, DISPLAY_WHITE, stat);
 #endif
     display_update_buffer();
 }

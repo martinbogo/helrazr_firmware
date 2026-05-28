@@ -23,7 +23,7 @@ static const uint32_t SWEEP_MS     = 2000;
 #if HAS_OLED
 static const int ROWS_PER_PAGE = 3;
 #else
-static const int ROWS_PER_PAGE = 6;
+static const int ROWS_PER_PAGE = 4;
 #endif
 
 struct KnownChannel {
@@ -109,51 +109,47 @@ static void drawPage() {
     display_draw_text_small_abs(0, 56, DISPLAY_CYAN, foot);
 
 #else
-    // TFT
-    display_fill_rect_abs(0, 32, 240, 102, DISPLAY_BLACK);
-
+    // TFT - regular font, canvas line rendering for flicker-free updates
     if (knownCount == 0) {
-        display_draw_text_abs(50, 80, DISPLAY_CYAN, "No active channels");
+        display_draw_text_line(30, 70, DISPLAY_CYAN, "No active channels");
     } else {
-        display_draw_text_small_abs(0,   32, DISPLAY_CYAN, "Frequency");
-        display_draw_text_small_abs(80,  32, DISPLAY_CYAN, "RSSI");
-        display_draw_text_small_abs(120, 32, DISPLAY_CYAN, "Peak");
-        display_draw_text_small_abs(162, 32, DISPLAY_CYAN, "Signal");
-
         for (int i = first; i < last; i++) {
             int row = i - first;
-            int y   = 44 + row * 14;
+            int y   = 38 + row * 20;
             bool stale = (known[i].missCount >= STALE_AFTER);
             uint16_t col = stale ? DISPLAY_GRAY : rssiColor(known[i].lastRSSI);
 
-            char freq[10], rssi[16], peak[16];
-            snprintf(freq, sizeof(freq), "%.3f", known[i].freq);
-            snprintf(rssi, sizeof(rssi), "%4d dBm", (int)known[i].lastRSSI);
-            snprintf(peak, sizeof(peak), "%4d", (int)known[i].peakRSSI);
+            char freq[10], rssi[16];
+            snprintf(freq, sizeof(freq), "%.1f", known[i].freq);
+            snprintf(rssi, sizeof(rssi), "%d dBm", (int)known[i].lastRSSI);
 
-            display_draw_text_small_abs(0,   y, col, freq);
-            display_draw_text_small_abs(80,  y, col, rssi);
-            display_draw_text_small_abs(120, y, DISPLAY_GRAY, peak);
-
+            display_begin_line(y, false);
+            display_line_text(0, col, freq);
+            display_line_text(75, col, rssi);
             if (!stale) {
                 int bw = rssiBarW(known[i].lastRSSI, 74);
-                display_fill_rect_abs(162, y, bw, 8, col);
-                display_fill_rect_abs(162 + bw, y, 74 - bw, 8, DISPLAY_BLACK);
+                display_line_fill_rect(160, bw, col);
+                display_line_fill_rect(160 + bw, 74 - bw, DISPLAY_BLACK);
             } else {
-                display_draw_text_small_abs(162, y, DISPLAY_GRAY, "stale");
+                display_line_text(160, DISPLAY_GRAY, "stale");
             }
+            display_end_line();
+        }
+        for (int row = last - first; row < ROWS_PER_PAGE; row++) {
+            display_begin_line(38 + row * 20, false);
+            display_end_line();
         }
     }
 
     char foot[48];
     if (totalPages > 1) {
-        snprintf(foot, sizeof(foot), "Page %d/%d   %d channels   Short:next page",
+        snprintf(foot, sizeof(foot), "Pg %d/%d  %d chan  S:next",
                  scrollPage + 1, totalPages, knownCount);
     } else {
-        snprintf(foot, sizeof(foot), "%d channels found   sweeping every 2s",
+        snprintf(foot, sizeof(foot), "%d channels   sweeping",
                  knownCount);
     }
-    display_draw_text_small_abs(0, 126, DISPLAY_CYAN, foot);
+    display_draw_text_small_line(0, 126, DISPLAY_CYAN, foot);
 #endif
 
     display_update_buffer();
@@ -246,6 +242,7 @@ void scanner_enter() {
     lastSweep  = 0;
     sweepCount = 0;
 
+    lora_set_scan_bandwidth(250.0f);
     display_clear();
 #if HAS_OLED
     display_draw_text_abs(10, 0, DISPLAY_CYAN, "Channel Scanner");

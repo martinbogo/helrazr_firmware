@@ -35,6 +35,7 @@ static uint8_t history[GRAPH_H][NUM_STEPS];
 static int nextRow = 0;
 static uint32_t totalScans = 0;
 static int crosshairRank = -1;
+static float noiseFloor = -120.0f;
 
 #if !HAS_OLED
 static int colorMode = 0; // 0=Classic, 1=Grayscale, 2=Ironbow, 3=Viridis, 4=Ocean, 5=Matrix, 6=Magma, 7=Super Bright
@@ -77,11 +78,12 @@ static bool invertOled = false;
 
 #if HAS_OLED
 static int getOledLevel(int rssi) {
-    if (rssi < -100) return 0; // Black background for typical noise floor
-    if (rssi >= -70) return 4; // Solid white for strong signals
-    if (rssi < -90) return 1;
-    if (rssi < -80) return 2;
-    return 3;
+    float above = rssi - noiseFloor;
+    if (above < 1.5f) return 0;
+    if (above < 5)    return 1;
+    if (above < 12)   return 2;
+    if (above < 22)   return 3;
+    return 4;
 }
 #endif
 
@@ -92,16 +94,17 @@ static int getOledLevel(int rssi) {
 
 static uint16_t rssiToWaterfallColor(int rssi) {
 #if HAS_OLED
-    return DISPLAY_BLACK; // Replaced by per-pixel logic below
+    return DISPLAY_BLACK;
 #else
+    float above = rssi - noiseFloor;
     int level = 0;
-    if (rssi >= -40) level = 7;
-    else if (rssi >= -50) level = 6;
-    else if (rssi >= -60) level = 5;
-    else if (rssi >= -70) level = 4;
-    else if (rssi >= -80) level = 3;
-    else if (rssi >= -90) level = 2;
-    else if (rssi >= -100) level = 1;
+    if      (above >= 40) level = 7;
+    else if (above >= 32) level = 6;
+    else if (above >= 24) level = 5;
+    else if (above >= 18) level = 4;
+    else if (above >= 12) level = 3;
+    else if (above >= 6)  level = 2;
+    else if (above >= 3)  level = 1;
 
     return PALLETES[colorMode][level];
 #endif
@@ -137,7 +140,9 @@ void waterfall_enter() {
     nextRow = 0;
     totalScans = 0;
     crosshairRank = -1;
+    noiseFloor = -120.0f;
 
+    lora_set_scan_bandwidth(250.0f);
     display_clear();
 #if HAS_OLED
     display_draw_text_abs(5, 0, DISPLAY_CYAN, "Waterfall 902-928MHz");
@@ -158,15 +163,29 @@ void waterfall_enter() {
 
 void waterfall_update() {
     // Capture one row of data
+    float rowRssi[NUM_STEPS];
     for (int i = 0; i < NUM_STEPS; i++) {
         float freq = FREQ_START + i * FREQ_STEP;
         float rssi = lora_scan_rssi(freq);
-        
+        rowRssi[i] = rssi;
+
         int val = (int)rssi + 135;
         if (val < 0) val = 0;
         if (val > 255) val = 255;
         history[nextRow][i] = val;
     }
+
+    // Adaptive noise floor: find the median RSSI and smooth it
+    float sorted[NUM_STEPS];
+    memcpy(sorted, rowRssi, sizeof(sorted));
+    for (int i = 1; i < NUM_STEPS; i++) {
+        float k = sorted[i];
+        int j = i - 1;
+        while (j >= 0 && sorted[j] > k) { sorted[j+1] = sorted[j]; j--; }
+        sorted[j+1] = k;
+    }
+    float sweepFloor = sorted[NUM_STEPS / 4];
+    noiseFloor = 0.2f * sweepFloor + 0.8f * noiseFloor;
 
     nextRow = (nextRow + 1) % GRAPH_H;
     totalScans++;
@@ -260,18 +279,23 @@ void waterfall_update() {
             }
         }
         
-        int avgSum = totalSum / NUM_STEPS;
+        // Threshold: use adaptive noise floor instead of fixed offset
+        int noiseSum = (int)(noiseFloor + 135) * GRAPH_H;
+        int threshold = noiseSum + GRAPH_H * 2;
+
         struct Peak { int col; int sum; };
         Peak peaks[NUM_STEPS];
         int numPeaks = 0;
-        
-        for (int i = 1; i < NUM_STEPS - 1; i++) {
-            if (colSums[i] > colSums[i-1] && colSums[i] >= colSums[i+1]) {
-                if (colSums[i] > avgSum + (GRAPH_H * 5)) { // Needs to be visibly above the noise floor
-                    peaks[numPeaks].col = i;
-                    peaks[numPeaks].sum = colSums[i];
-                    numPeaks++;
-                }
+
+        for (int i = 0; i < NUM_STEPS; i++) {
+            if (colSums[i] <= threshold) continue;
+            // Accept if higher than both neighbors, or at band edges
+            bool isPeak = (i == 0 || colSums[i] >= colSums[i-1]) &&
+                          (i == NUM_STEPS-1 || colSums[i] >= colSums[i+1]);
+            if (isPeak) {
+                peaks[numPeaks].col = i;
+                peaks[numPeaks].sum = colSums[i];
+                numPeaks++;
             }
         }
         
@@ -295,12 +319,13 @@ void waterfall_update() {
             int x1 = GRAPH_X + ((targetCol + 1) * GRAPH_W) / NUM_STEPS;
             int cx = (x0 + x1) / 2;
 
-            // Draw solid vertical line for crosshair to differentiate from dithered data
             display_fill_rect_abs(cx, GRAPH_Y, 1, GRAPH_H, invertOled ? DISPLAY_BLACK : DISPLAY_WHITE);
 
-            // Box fixed at top right to avoid overwriting peak directly
-            display_fill_rect_abs(94, 14, 34, 10, invertOled ? DISPLAY_BLACK : DISPLAY_WHITE);
-            display_draw_text_small_abs(96, 15, invertOled ? DISPLAY_WHITE : DISPLAY_BLACK, buf);
+            // Show frequency in title area instead of overlaying on the graph
+            char title[22];
+            snprintf(title, sizeof(title), "Waterfall  %s MHz", buf);
+            display_fill_rect_abs(0, 0, 128, 10, DISPLAY_BLACK);
+            display_draw_text_small_abs(5, 0, DISPLAY_CYAN, title);
 #else
             // High-speed SPI burst draws rows directly on TFT, so we must calculate cx for the whole screen
             int cx = (targetCol * GRAPH_W) / NUM_STEPS + GRAPH_X + (GRAPH_W / NUM_STEPS / 2);

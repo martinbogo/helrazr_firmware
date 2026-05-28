@@ -118,9 +118,8 @@ void ble_ota_enter() {
 
 void ble_ota_update() {
     if (ota_active) {
-        display_clear();
-        display_draw_text(0, 15, DISPLAY_CYAN, "Flashing...");
-        
+        display_draw_text_line(0, 15, DISPLAY_CYAN, "Flashing...");
+
         char buf[32];
         if(expectedBytes > 0) {
             int pct = (totalBytes * 100) / expectedBytes;
@@ -128,7 +127,7 @@ void ble_ota_update() {
         } else {
             snprintf(buf, sizeof(buf), "%lu B", totalBytes);
         }
-        display_draw_text_small(0, 40, DISPLAY_WHITE, buf);
+        display_draw_text_small_line(0, 40, DISPLAY_WHITE, buf);
         display_update_buffer();
     }
 }
