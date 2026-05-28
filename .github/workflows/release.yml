@@ -43,6 +43,9 @@ jobs:
       - name: Build Heltec V3 Firmware
         run: pio run -e heltec_v3
 
+      - name: Build Heltec V4 Firmware
+        run: pio run -e heltec_v4
+
       - name: Prepare Artifacts
         run: |
           mkdir release-artifacts
@@ -50,6 +53,8 @@ jobs:
           cp .pio/build/t114/firmware.zip release-artifacts/helrazr-t114-nrf-dfu.zip
           cp .pio/build/heltec_v3/firmware.factory.bin release-artifacts/helrazr-heltec_v3.factory.bin
           cp .pio/build/heltec_v3/firmware.bin release-artifacts/helrazr-heltec_v3-app-only.bin
+          cp .pio/build/heltec_v4/firmware.factory.bin release-artifacts/helrazr-heltec_v4.factory.bin
+          cp .pio/build/heltec_v4/firmware.bin release-artifacts/helrazr-heltec_v4-app-only.bin
 
       - name: Create Draft Release
         uses: softprops/action-gh-release@v2
@@ -57,28 +62,41 @@ jobs:
           draft: true
           generate_release_notes: true
           body: |
-            ### 🌐 Web Flasher Instructions
-            You can easily install these firmware files directly from your browser.
+            ### Flashing Instructions
 
-            **For Heltec V3 (ESP32-S3):**
+            **Heltec V3 (ESP32-S3):**
             1. Go to the [HelRazr Web Flasher](https://martinbogo.github.io/helrazr_firmware/).
-            2. Follow the on-screen instructions to select the `helrazr-heltec_v3.factory.bin` and flash securely.
+            2. Follow the on-screen instructions to select `helrazr-heltec_v3.factory.bin` and flash.
 
-            **For Heltec T114 (nRF52):**
+            **Heltec V4 (ESP32-S3):**
+            1. Go to the [HelRazr Web Flasher](https://martinbogo.github.io/helrazr_firmware/).
+            2. Follow the on-screen instructions to select `helrazr-heltec_v4.factory.bin` and flash.
+
+            **Heltec T114 (nRF52):**
             1. Double-click the reset button on your device to enter bootloader mode (a new USB drive will appear).
             2. Drag and drop the `helrazr-t114.uf2` file onto the drive.
 
             ---
 
-            ### 📦 Firmware Artifacts Guide
+            ### GPS Configuration Note
+
+            These release builds use the **default L76K GPS configuration** with standard pin routing, which is compatible with stock Heltec V3, V4, and T114 boards. If you are using a different GPS module (e.g., U-Blox M100) or have custom pin wiring, you will need to edit `src/config.h` to match your hardware and build/flash the firmware yourself using PlatformIO.
+
+            ---
+
+            ### Firmware Artifacts Guide
 
             **Heltec T114 (nRF52)**
-            * **`helrazr-t114.uf2`**: For USB drag-and-drop flashing (by double-clicking the reset button) or the Web Flasher.
-            * **`helrazr-t114-nrf-dfu.zip`**: DFU package for BLE Over-The-Air (OTA) flashing from a mobile app (like nRF Connect) or custom scripts.
+            * **`helrazr-t114.uf2`** -- USB drag-and-drop flashing (double-click reset to enter bootloader).
+            * **`helrazr-t114-nrf-dfu.zip`** -- DFU package for BLE OTA flashing from nRF Connect or similar.
 
-            **Heltec V3 (ESP32)**
-            * **`helrazr-heltec_v3.factory.bin`**: The complete image (includes bootloader, partitions, and application). Used for the Web Flasher or `esptool.py` (offset `0x0`).
-            * **`helrazr-heltec_v3-app-only.bin`**: Application-only binary, typically used for local, partial OTA updates.
+            **Heltec V3 (ESP32-S3)**
+            * **`helrazr-heltec_v3.factory.bin`** -- Complete image (bootloader + partitions + app). For Web Flasher or `esptool.py` at offset `0x0`.
+            * **`helrazr-heltec_v3-app-only.bin`** -- Application-only binary for partial OTA updates.
+
+            **Heltec V4 (ESP32-S3)**
+            * **`helrazr-heltec_v4.factory.bin`** -- Complete image (bootloader + partitions + app). For Web Flasher or `esptool.py` at offset `0x0`.
+            * **`helrazr-heltec_v4-app-only.bin`** -- Application-only binary for partial OTA updates.
 
             ---
 
