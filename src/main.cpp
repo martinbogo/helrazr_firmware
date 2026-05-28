@@ -124,7 +124,7 @@ void setup() {
     delay(500);
     
     Serial.println("--- BOOT SEQUENCE START ---");
-    
+
     // Must be first -- may not return if woken from standby and button released early
     // power_init();
 

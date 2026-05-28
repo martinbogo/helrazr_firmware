@@ -20,3 +20,9 @@ float gps_speed_kmh();
 int   gps_satellites();
 bool  gps_has_fix();
 uint32_t gps_chars_processed();
+bool gps_is_m100_ok();
+
+void gps_cmd_raw();
+void gps_cmd_init();
+void gps_cmd_monitor();
+void gps_diagnostic_test();

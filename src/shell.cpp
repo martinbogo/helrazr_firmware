@@ -43,6 +43,10 @@ static void print_help() {
     Serial.println("  help              Show this help");
     Serial.println("  status            Show all status");
     Serial.println("  gps               GPS info");
+    Serial.println("  gps raw           Dump raw GPS bytes (5s)");
+    Serial.println("  gps init          Re-init M100 with debug");
+    Serial.println("  gps monitor       Live GPS data (30s)");
+    Serial.println("  gps test          Pin/baud diagnostic");
     Serial.println("  lora              LoRa info");
     Serial.println("  lora listen       Start receiving");
     Serial.println("  lora stop         Stop receiving");
@@ -116,8 +120,13 @@ static void process_line(char* line) {
     } else if (strcmp(line, "gps") == 0) {
         cmd_gps();
     } else if (strcmp(line, "gps test") == 0) {
-        extern void gps_diagnostic_test();
         gps_diagnostic_test();
+    } else if (strcmp(line, "gps raw") == 0) {
+        gps_cmd_raw();
+    } else if (strcmp(line, "gps init") == 0) {
+        gps_cmd_init();
+    } else if (strcmp(line, "gps monitor") == 0) {
+        gps_cmd_monitor();
     } else if (strcmp(line, "lora") == 0) {
         cmd_lora();
     } else if (strcmp(line, "lora listen") == 0) {

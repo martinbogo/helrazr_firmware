@@ -17,23 +17,24 @@
 static TinyGPSPlus parser;
 #elif GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
 #include <SparkFun_u-blox_GNSS_v3.h>
-static SFE_UBLOX_GNSS parser; // Keep variable name parser but different type
+static SFE_UBLOX_GNSS_SERIAL *parser = nullptr;
+static bool m100_ok = false;
 #endif
 
 void gps_init() {
 #ifdef PIN_GPS_VEXT
     pinMode(PIN_GPS_VEXT, OUTPUT);
 #if defined(HELTEC_V3) || defined(HELTEC_V4)
-    digitalWrite(PIN_GPS_VEXT, LOW);    // Active LOW on ESP32 Heltec V3 and V4
+    digitalWrite(PIN_GPS_VEXT, LOW);
 #else
-    digitalWrite(PIN_GPS_VEXT, HIGH);   // Active HIGH on T114
+    digitalWrite(PIN_GPS_VEXT, HIGH);
 #endif
 #endif
 
 #ifdef PIN_GPS_STANDBY
     if (PIN_GPS_STANDBY >= 0) {
         pinMode(PIN_GPS_STANDBY, OUTPUT);
-        digitalWrite(PIN_GPS_STANDBY, HIGH); // keep GPS awake
+        digitalWrite(PIN_GPS_STANDBY, HIGH);
     }
 #endif
 
@@ -44,39 +45,43 @@ void gps_init() {
     digitalWrite(PIN_GPS_RST, HIGH);
 #endif
 
-    delay(1000); // L76K needs warmup after power-on
+    delay(1000);
+
+#ifdef CUSTOM_GPS_BAUD
+    #define GPS_BAUD CUSTOM_GPS_BAUD
+#else
+    #define GPS_BAUD 9600
+#endif
 
 #if defined(ESP32)
-    // ESP32 requires explicit pin routing for Serial1 since variants might not match
-    Serial1.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
+    Serial1.begin(GPS_BAUD, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 #else
-    // Serial1 uses PIN_SERIAL1_RX/TX from variant.h (GPS UART pins)
-#if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
-    // The SparkFun library often prefers higher defaults for newer U-Blox modules if auto-baud doesn't work, 
-    // but 9600 is standard default for M100 initially until config is pushed. The library auto-negotiates.
-    Serial1.begin(9600);
-#else
-    Serial1.begin(9600);
+    Serial1.setPins(PIN_GPS_RX, PIN_GPS_TX);
+    Serial1.begin(GPS_BAUD);
 #endif
-#endif // ESP32
 
 #if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
     delay(100);
-    // Initialize the u-blox module
-    if (!parser.begin(Serial1)) {
-        Serial.println("u-blox GNSS not detected. Check wiring.");
+    // Drain any buffered data before library init
+    while (Serial1.available()) Serial1.read();
+
+    parser = new SFE_UBLOX_GNSS_SERIAL();
+    parser->setPacketCfgPayloadSize(MAX_PAYLOAD_SIZE);
+    if (!parser->begin(Serial1, 2000, true)) {
+        Serial.println("GPS: u-blox M100 not detected. Check wiring.");
     } else {
-        // Output NMEA or UBX - by default begin() sets up UBX communication.
-        // We will stick to UBX since it is efficient.
-        parser.setUART1Output(COM_TYPE_UBX); 
+        m100_ok = true;
+        parser->setUART1Output(COM_TYPE_UBX);
+        parser->setAutoPVT(true);
+        Serial.print("GPS: u-blox M100 OK, protocol ");
+        Serial.println(parser->getProtocolVersionHigh());
     }
 #endif
 }
 
 void gps_update() {
 #if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
-    // Internal parser updates fields automatically when we request data, or we can check
-    parser.checkUblox();
+    if (m100_ok) parser->checkUblox();
 #else
     while (Serial1.available()) {
         parser.encode(Serial1.read());
@@ -86,9 +91,8 @@ void gps_update() {
 
 float gps_latitude() {
 #if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
-    if (parser.getFixType() > 0) {
-        return parser.getLatitude() / 10000000.0f;
-    }
+    if (m100_ok && parser->getFixType() > 0)
+        return parser->getLatitude() / 10000000.0f;
     return 0.0f;
 #else
     return parser.location.isValid() ? (float)parser.location.lat() : 0.0f;
@@ -97,9 +101,8 @@ float gps_latitude() {
 
 float gps_longitude() {
 #if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
-    if (parser.getFixType() > 0) {
-        return parser.getLongitude() / 10000000.0f;
-    }
+    if (m100_ok && parser->getFixType() > 0)
+        return parser->getLongitude() / 10000000.0f;
     return 0.0f;
 #else
     return parser.location.isValid() ? (float)parser.location.lng() : 0.0f;
@@ -108,9 +111,8 @@ float gps_longitude() {
 
 float gps_altitude() {
 #if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
-    if (parser.getFixType() > 0) {
-        return parser.getAltitude() / 1000.0f; // mm to meters
-    }
+    if (m100_ok && parser->getFixType() > 0)
+        return parser->getAltitude() / 1000.0f;
     return 0.0f;
 #else
     return parser.altitude.isValid() ? (float)parser.altitude.meters() : 0.0f;
@@ -119,10 +121,8 @@ float gps_altitude() {
 
 float gps_speed_kmh() {
 #if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
-    if (parser.getFixType() > 0) {
-        // mm/s to km/h = (mm/s * 3600) / 1000000 = mm/s * 0.0036
-        return parser.getGroundSpeed() * 0.0036f;
-    }
+    if (m100_ok && parser->getFixType() > 0)
+        return parser->getGroundSpeed() * 0.0036f;
     return 0.0f;
 #else
     return parser.speed.isValid() ? (float)parser.speed.kmph() : 0.0f;
@@ -131,7 +131,7 @@ float gps_speed_kmh() {
 
 int gps_satellites() {
 #if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
-    return parser.getSIV();
+    return m100_ok ? parser->getSIV() : 0;
 #else
     return parser.satellites.isValid() ? parser.satellites.value() : 0;
 #endif
@@ -139,7 +139,7 @@ int gps_satellites() {
 
 bool gps_has_fix() {
 #if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
-    return (parser.getFixType() > 0);
+    return m100_ok && (parser->getFixType() > 0);
 #else
     return parser.location.isValid() && parser.location.age() < 3000;
 #endif
@@ -147,9 +147,104 @@ bool gps_has_fix() {
 
 uint32_t gps_chars_processed() {
 #if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
-    return 0; // The SparkFun library doesn't expose raw char count easily like this
+    return 0;
 #else
     return parser.charsProcessed();
+#endif
+}
+
+bool gps_is_m100_ok() {
+#if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
+    return m100_ok;
+#else
+    return false;
+#endif
+}
+
+void gps_cmd_raw() {
+#if HAS_GPS
+    Serial.println("--- GPS Raw (5s) ---");
+    Serial.printf("Pins: RX=%d TX=%d  Baud: 9600\n", PIN_GPS_RX, PIN_GPS_TX);
+    unsigned long start = millis();
+    int count = 0;
+    while (millis() - start < 5000) {
+        if (Serial1.available()) {
+            uint8_t b = Serial1.read();
+            if (count % 16 == 0 && count > 0) Serial.println();
+            Serial.printf("%02X ", b);
+            count++;
+        }
+    }
+    Serial.printf("\n--- %d bytes in 5s ---\n", count);
+#else
+    Serial.println("No GPS hardware");
+#endif
+}
+
+void gps_cmd_init() {
+#if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100 && HAS_GPS
+    Serial.println("--- M100 Init (debug) ---");
+    Serial.printf("Pins: RX=%d TX=%d  Baud: %d\n", PIN_GPS_RX, PIN_GPS_TX, GPS_BAUD);
+
+    Serial1.end();
+    delay(10);
+#if defined(ESP32)
+    Serial1.begin(GPS_BAUD, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
+#else
+    Serial1.setPins(PIN_GPS_RX, PIN_GPS_TX);
+    Serial1.begin(GPS_BAUD);
+#endif
+    delay(100);
+    while (Serial1.available()) Serial1.read();
+
+    if (parser) {
+        delete parser;
+        parser = nullptr;
+        m100_ok = false;
+    }
+
+    parser = new SFE_UBLOX_GNSS_SERIAL();
+    parser->enableDebugging(Serial, true);
+
+    Serial.println("Calling begin(Serial1, 3000, assumeSuccess=true)...");
+    if (!parser->begin(Serial1, 3000, true)) {
+        Serial.println("RESULT: begin() failed");
+    } else {
+        Serial.println("RESULT: begin() OK");
+        m100_ok = true;
+        parser->setUART1Output(COM_TYPE_UBX);
+        parser->setAutoPVT(true);
+        Serial.printf("Protocol: %d.%d\n",
+            parser->getProtocolVersionHigh(),
+            parser->getProtocolVersionLow());
+    }
+    parser->disableDebugging();
+#else
+    Serial.println("M100 GPS not configured");
+#endif
+}
+
+void gps_cmd_monitor() {
+#if HAS_GPS
+    Serial.println("--- GPS Monitor (30s, Ctrl+C to stop) ---");
+    unsigned long start = millis();
+    while (millis() - start < 30000) {
+        gps_update();
+        Serial.printf("Fix:%-3s Sats:%-2d Lat:%11.6f Lon:%11.6f Alt:%7.1fm\r\n",
+            gps_has_fix() ? "3D" : "No",
+            gps_satellites(),
+            gps_latitude(),
+            gps_longitude(),
+            gps_altitude());
+        delay(1000);
+        if (Serial.available()) {
+            Serial.read();
+            break;
+        }
+    }
+    Serial.println("--- Monitor stopped ---");
+#else
+    Serial.println("No GPS hardware");
 #endif
 }
 
@@ -165,6 +260,10 @@ float gps_speed_kmh() { return 0.0f; }
 int gps_satellites() { return 0; }
 bool gps_has_fix() { return false; }
 uint32_t gps_chars_processed() { return 0; }
+bool gps_is_m100_ok() { return false; }
+void gps_cmd_raw() { Serial.println("No GPS hardware"); }
+void gps_cmd_init() { Serial.println("No GPS hardware"); }
+void gps_cmd_monitor() { Serial.println("No GPS hardware"); }
 
 #endif
 

@@ -29,6 +29,7 @@
 // Note: On nRF52 (like T114), avoid using pins reserved for QSPI (e.g. 7 or 8 depending on hardware)
 #define CUSTOM_GPS_RX        8
 #define CUSTOM_GPS_TX        7
+#define CUSTOM_GPS_BAUD      115200
 
 // Uncomment and set these if your GPS module supports them:
 // #define CUSTOM_GPS_VEXT      21

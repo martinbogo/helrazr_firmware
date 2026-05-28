@@ -113,70 +113,80 @@ void display_update(float lat, float lon, int sats, bool gps_fix,
                     bool lora_listening, float bat_voltage, uint32_t uptime_s) {
     if (!powered) return;
 
-#if HAS_TFT
-    // TFT prevents text overlap on updates using a full backfill
-    // Using fillScreen is fine over fast hardware SPI without a frame buffer
-    display_clear(true);
-#else
+#if HAS_OLED
     display_clear();
 #endif
 
     char buf[40];
-#if HAS_OLED
-    int y = 0;
-#else
+
+#if HAS_TFT
     int y = 15;
+    const int lineH = 18;
+
+#if HAS_GPS
+    tft.fillRect(0, y - 13, 240, lineH, DISPLAY_BLACK);
+    snprintf(buf, sizeof(buf), "GPS: %-3s  Sats: %d  Rx: %lu", gps_fix ? "3D" : "No", sats, gps_chars_processed());
+    display_draw_text_abs(0, y, DISPLAY_GREEN, buf);
 #endif
+    y += lineH;
+
+    tft.fillRect(0, y - 13, 240, lineH, DISPLAY_BLACK);
+    char rssibuf[8];
+    fmtFloat(rssibuf, sizeof(rssibuf), lora_rssi, 5, 1);
+    snprintf(buf, sizeof(buf), "LoRa %s  RSSI: %s", lora_listening ? "RX" : "--", rssibuf);
+    display_draw_text_abs(0, y, DISPLAY_YELLOW, buf);
+    y += lineH;
+
+    tft.fillRect(0, y - 13, 240, lineH, DISPLAY_BLACK);
+    char snrbuf[8];
+    fmtFloat(snrbuf, sizeof(snrbuf), lora_snr, 4, 1);
+    snprintf(buf, sizeof(buf), "SNR: %s   Pkts: %d", snrbuf, lora_packets);
+    display_draw_text_abs(0, y, DISPLAY_WHITE, buf);
+    y += lineH;
+
+    tft.fillRect(0, y - 13, 240, lineH, DISPLAY_BLACK);
+    char batbuf[7];
+    fmtFloat(batbuf, sizeof(batbuf), bat_voltage, 4, 2);
+    snprintf(buf, sizeof(buf), "Bat: %sV", batbuf);
+    uint16_t bat_color;
+    if (bat_voltage >= 3.7f) bat_color = DISPLAY_GREEN;
+    else if (bat_voltage >= 3.1f) bat_color = DISPLAY_YELLOW;
+    else bat_color = DISPLAY_RED;
+    display_draw_text_abs(0, y, bat_color, buf);
+
+    uint32_t h = uptime_s / 3600, m = (uptime_s % 3600) / 60, s2 = uptime_s % 60;
+    snprintf(buf, sizeof(buf), "Up: %02lu:%02lu:%02lu", h, m, s2);
+    display_draw_text_abs(120, y, DISPLAY_WHITE, buf);
+
+#else  // OLED
+    int y = 0;
 
 #if HAS_GPS
     snprintf(buf, sizeof(buf), "GPS: %-3s  Sats: %d  Rx: %lu", gps_fix ? "3D" : "No", sats, gps_chars_processed());
-#if HAS_OLED
-    display_draw_text_abs(0, y, DISPLAY_GREEN, buf);
-#else
     display_draw_text_abs(0, y, DISPLAY_GREEN, buf);
 #endif
-#endif
-#if HAS_OLED
     y += 14;
-#else
-    y += 18;
-#endif
 
     char rssibuf[8];
     fmtFloat(rssibuf, sizeof(rssibuf), lora_rssi, 5, 1);
     snprintf(buf, sizeof(buf), "LoRa %s  RSSI: %s", lora_listening ? "RX" : "--", rssibuf);
     display_draw_text_abs(0, y, DISPLAY_YELLOW, buf);
-#if HAS_OLED
     y += 14;
-#else
-    y += 18;
-#endif
 
     char snrbuf[8];
     fmtFloat(snrbuf, sizeof(snrbuf), lora_snr, 4, 1);
-#if HAS_OLED
-    // Keep OLED SNR line short: "SNR: 7.2 Pk:99" = 15 chars * 6px = 90px, safe on 128px
     snprintf(buf, sizeof(buf), "SNR:%s Pk:%d", snrbuf, lora_packets);
-#else
-    snprintf(buf, sizeof(buf), "SNR: %s   Pkts: %d", snrbuf, lora_packets);
-#endif
     display_draw_text_abs(0, y, DISPLAY_WHITE, buf);
-#if HAS_OLED
     y += 14;
-#else
-    y += 18;
-#endif
 
     char batbuf[7];
     fmtFloat(batbuf, sizeof(batbuf), bat_voltage, 4, 2);
     snprintf(buf, sizeof(buf), "Bat: %sV", batbuf);
     display_draw_text_abs(0, y, DISPLAY_WHITE, buf);
 
-#if HAS_OLED && HAS_GPS
-    // y is now 42; one more small line fits at y=52 before the 63px bottom
+#if HAS_GPS
     y += 10;
     if (gps_fix) {
-        // Abbreviated coords: "37.77/-122.41" fits in 128px at 6px/char
         char latbuf[8], lonbuf[8];
         fmtFloat(latbuf, sizeof(latbuf), lat, 6, 2);
         fmtFloat(lonbuf, sizeof(lonbuf), lon, 7, 2);
@@ -186,12 +196,9 @@ void display_update(float lat, float lon, int sats, bool gps_fix,
         snprintf(buf, sizeof(buf), "Up %02lu:%02lu:%02lu", h, m, s2);
     }
     display_draw_text_small_abs(0, y + 2, DISPLAY_CYAN, buf);
-#elif !HAS_OLED
-    // TFT: uptime on the right side of the battery line
-    uint32_t h = uptime_s / 3600, m = (uptime_s % 3600) / 60, s2 = uptime_s % 60;
-    snprintf(buf, sizeof(buf), "Up: %02lu:%02lu:%02lu", h, m, s2);
-    display_draw_text_abs(120, y, DISPLAY_WHITE, buf);
 #endif
+
+#endif  // HAS_TFT vs OLED
 
     display_update_buffer();
 }
