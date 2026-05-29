@@ -30,22 +30,31 @@
                 </div>
             </div>
 
-            <!-- V3 Section -->
+            <!-- ESP32-S3 Section (V3 & V4) -->
             <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-xl">
-                <h2 class="text-2xl font-bold mb-4 text-orange-400">Heltec V3 (ESP32-S3)</h2>
-                <p class="text-sm text-gray-300 mb-6">Use this tool to securely flash the custom <code>factory.bin</code> over WebSerial.</p>
-                
+                <h2 class="text-2xl font-bold mb-4 text-orange-400">Heltec V3 / V4 (ESP32-S3)</h2>
+                <p class="text-sm text-gray-300 mb-6">Use this tool to securely flash the custom <code>factory.bin</code> over WebSerial. Works for both V3 and V4 boards.</p>
+
                 <div class="space-y-4">
+                    <!-- Board Selection -->
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-gray-400">1. Select Your Board</label>
+                        <select id="boardSelect" class="block w-full text-sm text-gray-400 cursor-pointer border border-gray-700 rounded-md p-2 bg-gray-900">
+                            <option value="v3">Heltec V3</option>
+                            <option value="v4">Heltec V4</option>
+                        </select>
+                    </div>
+
                     <!-- File Selection -->
                     <div>
-                        <label class="block text-sm font-medium mb-2 text-gray-400">1. Select Firmware File</label>
+                        <label class="block text-sm font-medium mb-2 text-gray-400">2. Select Firmware File</label>
                         <input type="file" id="fileInput" accept=".bin" class="block w-full text-sm text-gray-400
                             file:mr-4 file:py-2 file:px-4
                             file:rounded-md file:border-0
                             file:text-sm file:font-semibold
                             file:bg-orange-600 file:text-white
                             hover:file:bg-orange-700 cursor-pointer border border-gray-700 rounded-md p-2 bg-gray-900"/>
-                        <p class="mt-1 text-xs text-gray-500">Ensure you select the <code class="text-orange-400">helrazr-heltec_v3.factory.bin</code>.</p>
+                        <p id="firmwareHint" class="mt-1 text-xs text-gray-500">Ensure you select <code class="text-orange-400">helrazr-heltec_v3.factory.bin</code>.</p>
                     </div>
 
                     
@@ -71,7 +80,7 @@
 
                     <!-- Connect -->
                     <div>
-                        <label class="block text-sm font-medium mb-2 text-gray-400">2. Connect Device</label>
+                        <label class="block text-sm font-medium mb-2 text-gray-400">3. Connect Device</label>
                         <button id="connectBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed">
                             Connect to Port
                         </button>
@@ -79,13 +88,19 @@
 
                     <!-- Flash -->
                     <div>
-                        <label class="block text-sm font-medium mb-2 text-gray-400">3. Flash Firmware</label>
+                        <label class="block text-sm font-medium mb-2 text-gray-400">4. Flash Firmware</label>
                         <button id="flashBtn" disabled class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center">
                             Flash Device
                         </button>
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- GPS Note -->
+        <div class="bg-gray-800 rounded-xl p-4 border border-yellow-700/50 text-sm text-gray-300">
+            <p class="font-semibold text-yellow-400 mb-1">GPS Configuration Note</p>
+            <p>Release builds use the <strong>default L76K GPS configuration</strong> with standard pin routing, compatible with stock Heltec V3, V4, and T114 boards. If you are using a different GPS module (e.g., U-Blox M100) or have custom pin wiring, you will need to edit <code class="text-orange-400">src/config.h</code> and build the firmware yourself using PlatformIO.</p>
         </div>
 
         <!-- Terminal Output -->
@@ -112,6 +127,14 @@
         const terminal = document.getElementById('terminal');
         const baudRate = document.getElementById('baudRate');
         const eraseFlash = document.getElementById('eraseFlash');
+        const boardSelect = document.getElementById('boardSelect');
+        const firmwareHint = document.getElementById('firmwareHint');
+
+        boardSelect.addEventListener('change', () => {
+            const board = boardSelect.value;
+            const name = board === 'v4' ? 'helrazr-heltec_v4.factory.bin' : 'helrazr-heltec_v3.factory.bin';
+            firmwareHint.innerHTML = `Ensure you select <code class="text-orange-400">${name}</code>.`;
+        });
 
         function logMsg(msg) {
             terminal.textContent += msg + '\n';
