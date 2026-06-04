@@ -175,12 +175,7 @@ void decoder_double_press() {
 static void drawLog() {
     display_clear();
 
-#if HAS_OLED
-    display_draw_text_abs(10, 0, DISPLAY_CYAN, "Meshtastic Decoder");
-    display_draw_hline(0, 10, 128, DISPLAY_GRAY);
-#else
-    display_draw_text_line(30, 15, DISPLAY_CYAN, "Meshtastic Decoder");
-#endif
+    ui_header("Decoder");
 
     if (totalPkts == 0) {
 #if HAS_OLED
@@ -191,7 +186,6 @@ static void drawLog() {
         display_draw_text_line(0, 95, DISPLAY_BLACK, "");
         display_draw_text_small_line(0, 125, DISPLAY_BLACK, "");
 #endif
-        display_draw_hline(0, 20, 240, DISPLAY_GRAY);
         display_update_buffer();
         return;
     }
@@ -300,9 +294,6 @@ static void drawLog() {
 #endif
     }
 
-#if !HAS_OLED
-    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
-#endif
     display_update_buffer();
 }
 

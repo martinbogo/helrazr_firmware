@@ -24,9 +24,9 @@ static const int GRAPH_W  = 128;
 static const int GRAPH_H  = 40;
 #else
 static const int GRAPH_X  = 0;
-static const int GRAPH_Y  = 20;
+static const int GRAPH_Y  = 24;
 static const int GRAPH_W  = 240;
-static const int GRAPH_H  = 90;
+static const int GRAPH_H  = 86;
 #endif
 
 // We map history to an array of size GRAPH_H * NUM_STEPS
@@ -119,7 +119,7 @@ void waterfall_short_press() {
 #if HAS_OLED
     // Clear old pause UI area if it was left dirty (not needed anymore, but safe)
     display_fill_rect_abs(112, 0, 16, 10, DISPLAY_BLACK);
-    display_draw_text_abs(5, 0, DISPLAY_CYAN, "Waterfall 902-928MHz");
+    ui_header("Waterfall");
 #else
     display_fill_rect_abs(220, 5, 20, 20, DISPLAY_BLACK);
 #endif
@@ -144,13 +144,12 @@ void waterfall_enter() {
 
     lora_set_scan_bandwidth(250.0f);
     display_clear();
+    ui_header("Waterfall");
 #if HAS_OLED
-    display_draw_text_abs(5, 0, DISPLAY_CYAN, "Waterfall 902-928MHz");
     display_draw_text_tiny_abs(0,   GRAPH_Y + GRAPH_H + 3, DISPLAY_CYAN, "902");
     display_draw_text_tiny_abs(54,  GRAPH_Y + GRAPH_H + 3, DISPLAY_CYAN, "915");
     display_draw_text_tiny_abs(111, GRAPH_Y + GRAPH_H + 3, DISPLAY_CYAN, "928");
 #else
-    display_draw_text_abs(30, 15, DISPLAY_CYAN, "Waterfall 902-928 MHz");
     drawTftColorLegend();
     display_draw_text_small_abs(0,   GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "902");
     display_draw_text_small_abs(54,  GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "909");

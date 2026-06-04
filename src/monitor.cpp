@@ -31,13 +31,9 @@ static uint16_t rssiColor(float rssi) {
 static void drawTable() {
     display_clear();
 
+    ui_header("Monitor");
 #if HAS_OLED
-    display_draw_text_abs(15, 0, DISPLAY_CYAN, "Channel Monitor");
-    display_draw_hline(0, 10, 128, DISPLAY_GRAY);
     display_draw_text_small_abs(0, 12, DISPLAY_CYAN, "Chan      Pk  RSSI Age");
-#else
-    display_draw_text_line(40, 15, DISPLAY_CYAN, "Channel Monitor");
-    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
 #endif
 
     uint32_t now = millis();

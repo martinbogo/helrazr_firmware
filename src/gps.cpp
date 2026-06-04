@@ -277,7 +277,13 @@ void gps_cmd_init() {
     while (Serial1.available()) Serial1.read();
 
     if (parser) {
+        // parser is always exactly SFE_UBLOX_GNSS_SERIAL (never a subclass), so
+        // this delete is well-defined; SparkFun's base type just lacks a virtual
+        // dtor, which we can't change. Silence the (false-positive) warning.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdelete-non-virtual-dtor"
         delete parser;
+#pragma GCC diagnostic pop
         parser = nullptr;
         m100_ok = false;
     }

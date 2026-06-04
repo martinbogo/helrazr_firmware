@@ -19,9 +19,9 @@ static const int GRAPH_W  = 128;
 static const int GRAPH_H  = 38;
 #else
 static const int GRAPH_X  = 0;
-static const int GRAPH_Y  = 20;
+static const int GRAPH_Y  = 24;
 static const int GRAPH_W  = 240;
-static const int GRAPH_H  = 85;
+static const int GRAPH_H  = 81;
 #endif
 
 static const int RSSI_MIN = -135;
@@ -50,13 +50,7 @@ void noise_enter() {
     lora_start_listen();
     
     display_clear();
-#if HAS_OLED
-    display_draw_text_abs(5, 0, DISPLAY_CYAN, MESH_CHANNELS[channelIdx].name);
-#else
-    char buf[40];
-    snprintf(buf, sizeof(buf), "Noise Floor: %s     ", MESH_CHANNELS[channelIdx].name);
-    display_draw_text_abs(5, 15, DISPLAY_CYAN, buf);
-#endif
+    ui_header("Noise Floor", MESH_CHANNELS[channelIdx].name);
     display_update_buffer();
 }
 

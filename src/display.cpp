@@ -10,6 +10,7 @@
 #include "display.h"
 #include "pins.h"
 #include "gps.h"
+#include "layout.h"
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -130,8 +131,8 @@ void display_update(float lat, float lon, int sats, bool gps_fix,
     char buf[40];
 
 #if HAS_TFT
-    const int lineH = 18;
-    int y = 2;
+    const int lineH = UI_ROW_H;
+    int y = ui_content_top();
 
     auto drawLine = [&](int yPos, uint16_t color, const char* text) {
         _tftLine.fillScreen(DISPLAY_BLACK);
@@ -156,6 +157,8 @@ void display_update(float lat, float lon, int sats, bool gps_fix,
         _tftLine.print(t2);
         tft.drawRGBBitmap(0, yPos, _tftLine.getBuffer(), 240, 18);
     };
+
+    ui_header("Status");
 
 #if HAS_GPS
     snprintf(buf, sizeof(buf), "GPS: %-3s  Sats: %d  Rx: %lu", gps_fix ? "3D" : "No", sats, gps_chars_processed());
@@ -428,4 +431,51 @@ void display_draw_text_small_line(int x, int y, uint16_t color, const char* text
     display_begin_line(y, true);
     display_line_text(x, color, text);
     display_end_line();
+}
+
+void ui_header(const char* title, const char* right) {
+    int16_t bx, by; uint16_t bw, bh;
+#if HAS_TFT
+    tft.setFont(&FreeSans9pt7b);
+    tft.setTextSize(1);
+    tft.setTextColor(DISPLAY_CYAN, DISPLAY_BLACK);
+    tft.setCursor(UI_PAD, 16);
+    tft.print(title);
+    if (right) {
+        tft.setFont(NULL);
+        tft.setTextColor(DISPLAY_GRAY, DISPLAY_BLACK);
+        tft.getTextBounds(right, 0, 0, &bx, &by, &bw, &bh);
+        tft.setCursor(LCD_W - UI_PAD - bw, 3);
+        tft.print(right);
+    }
+    tft.fillRect(0, UI_HEADER_H - 2, LCD_W, 2, DISPLAY_CYAN); // accent rule
+    tft.setFont(&FreeSans9pt7b);
+#else
+    tft.setFont(NULL);
+    tft.setTextSize(1);
+    tft.setTextColor(DISPLAY_CYAN);
+    tft.setCursor(UI_PAD, 0);
+    tft.print(title);
+    if (right) {
+        tft.getTextBounds(right, 0, 0, &bx, &by, &bw, &bh);
+        tft.setCursor(LCD_W - bw, 0);
+        tft.print(right);
+    }
+    tft.drawFastHLine(0, UI_HEADER_H - 2, LCD_W, DISPLAY_GRAY);
+#endif
+}
+
+void ui_footer(const char* hint) {
+    tft.setFont(NULL);
+    tft.setTextSize(1);
+#if HAS_TFT
+    tft.setTextColor(DISPLAY_GRAY, DISPLAY_BLACK);
+#else
+    tft.setTextColor(DISPLAY_GRAY);
+#endif
+    tft.setCursor(UI_PAD, ui_footer_y());
+    tft.print(hint);
+#if HAS_TFT
+    tft.setFont(&FreeSans9pt7b);
+#endif
 }

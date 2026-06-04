@@ -26,9 +26,9 @@ static const int GRAPH_W  = 128;
 static const int GRAPH_H  = 38;
 #else
 static const int GRAPH_X  = 0;
-static const int GRAPH_Y  = 20;   // below title
+static const int GRAPH_Y  = 24;   // below header
 static const int GRAPH_W  = 240;
-static const int GRAPH_H  = 85;   // leaves ample room at bottom for 2 lines of labels
+static const int GRAPH_H  = 81;   // leaves ample room at bottom for 2 lines of labels
 #endif
 static const int RSSI_MIN = -135;
 static const int RSSI_MAX = -40;
@@ -73,13 +73,12 @@ void spectrum_enter() {
     currentMode = MODE_SWEEP;
     lora_set_scan_bandwidth(250.0f);
     display_clear();
+    ui_header("Spectrum");
 #if HAS_OLED
-    display_draw_text_abs(5, 0, DISPLAY_CYAN, "Spectrum 902-928 MHz");
     display_draw_text_small_abs(0,   GRAPH_Y + GRAPH_H + 4, DISPLAY_CYAN, "02");
     display_draw_text_small_abs(54,  GRAPH_Y + GRAPH_H + 4, DISPLAY_CYAN, "15");
     display_draw_text_small_abs(115, GRAPH_Y + GRAPH_H + 4, DISPLAY_CYAN, "28");
 #else
-    display_draw_text_abs(30, 15, DISPLAY_CYAN, "Spectrum 902-928 MHz");
     // x-axis labels using small font
     display_draw_text_small_abs(0,   GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "902");
     display_draw_text_small_abs(54,  GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "909");

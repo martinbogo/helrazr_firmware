@@ -34,8 +34,7 @@ static uint16_t dutyColor(float pct) {
 static void drawDisplay() {
 #if HAS_OLED
     display_clear();
-    display_draw_text_abs(15, 0, DISPLAY_CYAN, "Duty Cycle");
-    display_draw_hline(0, 10, 128, DISPLAY_GRAY);
+    ui_header("Duty Cycle");
 
     for (int i = 0; i < MESH_CHANNEL_COUNT; i++) {
         int y = 12 + i * 7;
@@ -58,8 +57,7 @@ static void drawDisplay() {
     snprintf(foot, sizeof(foot), "RX: %-10s", MESH_CHANNELS[curChan].name);
     display_draw_text_small_abs(0, 56, DISPLAY_YELLOW, foot);
 #else
-    display_draw_text_line(20, 15, DISPLAY_CYAN, "Channel Utilization");
-    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
+    ui_header("Duty Cycle");
 
     for (int i = 0; i < MESH_CHANNEL_COUNT; i++) {
         int y = 36 + i * 14;

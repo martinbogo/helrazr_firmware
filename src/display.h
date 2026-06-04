@@ -28,13 +28,10 @@ extern Adafruit_SSD1306 tft;
 #define DISPLAY_RED   SSD1306_WHITE
 #define DISPLAY_GRAY  SSD1306_WHITE
 #else
-#define DISPLAY_BLACK 0x0000
-#define DISPLAY_WHITE 0xFFFF
-#define DISPLAY_CYAN  0x07FF
-#define DISPLAY_GREEN 0x07E0
-#define DISPLAY_YELLOW 0xFFE0
-#define DISPLAY_RED   0xF800
-#define DISPLAY_GRAY  0x4228
+// TFT colors are runtime-themeable (hiking day / red night). theme.cpp owns
+// these globals; every screen re-skins automatically when the theme changes.
+extern uint16_t DISPLAY_BLACK, DISPLAY_WHITE, DISPLAY_CYAN,
+                DISPLAY_GREEN, DISPLAY_YELLOW, DISPLAY_RED, DISPLAY_GRAY;
 #endif
 
 // Lifecycle
@@ -70,3 +67,8 @@ void display_line_fill_rect(int x, int w, uint16_t color);
 void display_end_line();
 void display_draw_text_line(int x, int y, uint16_t color, const char* text);
 void display_draw_text_small_line(int x, int y, uint16_t color, const char* text);
+
+// Shared, resolution-aware chrome (positions derive from layout.h metrics, so
+// every screen that uses these re-flows for a new panel automatically).
+void ui_header(const char* title, const char* right = nullptr);
+void ui_footer(const char* hint);

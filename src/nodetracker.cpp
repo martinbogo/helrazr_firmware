@@ -58,15 +58,8 @@ static void drawTable() {
     display_clear();
 
     char title[32];
-#if HAS_OLED
     snprintf(title, sizeof(title), "Nodes (%d)", nodeCount);
-    display_draw_text_abs(0, 0, DISPLAY_CYAN, title);
-    display_draw_hline(0, 9, 128, DISPLAY_GRAY);
-#else
-    snprintf(title, sizeof(title), "Nodes (%d seen)", nodeCount);
-    display_draw_text_line(0, 15, DISPLAY_CYAN, title);
-    display_draw_hline(0, 20, 240, 0x2104);
-#endif
+    ui_header(title);
 
     uint32_t now = millis();
     int shown = min(ROWS_SHOWN, nodeCount - scrollTop);

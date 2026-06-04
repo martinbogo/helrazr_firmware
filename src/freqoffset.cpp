@@ -35,8 +35,7 @@ static uint16_t offsetColor(float absHz) {
 static void drawDisplay() {
 #if HAS_OLED
     display_clear();
-    display_draw_text_abs(10, 0, DISPLAY_CYAN, "Freq Offset");
-    display_draw_hline(0, 10, 128, DISPLAY_GRAY);
+    ui_header("Freq Offset");
 
     for (int i = 0; i < MESH_CHANNEL_COUNT; i++) {
         int y = 12 + i * 7;
@@ -58,8 +57,7 @@ static void drawDisplay() {
     snprintf(foot, sizeof(foot), "RX: %-10s", MESH_CHANNELS[curChan].name);
     display_draw_text_small_abs(0, 56, DISPLAY_YELLOW, foot);
 #else
-    display_draw_text_line(30, 15, DISPLAY_CYAN, "Frequency Offset");
-    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
+    ui_header("Freq Offset");
 
     if (showVisual) {
         display_draw_vline(120, 24, 98, DISPLAY_GRAY);

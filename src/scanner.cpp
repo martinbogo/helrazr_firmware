@@ -244,12 +244,10 @@ void scanner_enter() {
 
     lora_set_scan_bandwidth(250.0f);
     display_clear();
+    ui_header("Scanner");
 #if HAS_OLED
-    display_draw_text_abs(10, 0, DISPLAY_CYAN, "Channel Scanner");
-    display_draw_hline(0, 9, 128, DISPLAY_GRAY);
     display_draw_text_small_abs(0, 11, DISPLAY_CYAN, "Scanning 902-928MHz...");
 #else
-    display_draw_text_abs(40, 15, DISPLAY_CYAN, "Channel Scanner");
     display_draw_text_small_abs(0, 26, DISPLAY_CYAN, "Scanning 902-928 MHz...");
 #endif
     display_update_buffer();

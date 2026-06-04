@@ -12,14 +12,72 @@
 #include "gps.h"
 #include "waypoints.h"
 #include "button.h"
+#include "theme.h"
 #include <math.h>
 #if HAS_TFT
 #include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/FreeSansBold12pt7b.h>
 #endif
 
-// Speed (km/h) below which GPS-derived course is treated as unreliable.
-// Without a magnetometer, heading only exists while moving.
-static const float MOVING_KMH = 2.0f;
+// Debounced "in motion" detection. GPS speed is noisy near walking pace, so a
+// single threshold makes the compass flicker between the needle and MOVE. We
+// smooth the speed (EMA), apply Schmitt-trigger thresholds, and require the new
+// state to persist for a dwell time. The timing is asymmetric: quicker to
+// engage the needle than to fall back to MOVE, so a brief pause or a momentary
+// GPS dip doesn't drop the heading.
+static bool     s_inMotion   = false;
+static float    s_spdEma     = 0.0f;
+static uint32_t s_dwellSince = 0;
+static uint32_t s_lastEval   = 0;
+
+static bool motion_state(float spd, bool courseValid) {
+    uint32_t now = millis();
+    if (s_lastEval == 0 || now - s_lastEval > 2000) { // first call / returned after a gap
+        s_spdEma = spd;
+        s_dwellSince = 0;
+    }
+    s_lastEval = now;
+    s_spdEma += 0.35f * (spd - s_spdEma);
+
+    const float    ENTER_KMH = 2.5f, EXIT_KMH = 1.0f; // Schmitt band
+    const uint32_t ENTER_MS  = 1000, EXIT_MS  = 2500; // sustain before flipping
+
+    bool target = s_inMotion ? (courseValid && s_spdEma > EXIT_KMH)
+                             : (courseValid && s_spdEma > ENTER_KMH);
+    if (target == s_inMotion)   s_dwellSince = 0;          // stable
+    else if (s_dwellSince == 0) s_dwellSince = now;        // start dwell
+    else if (now - s_dwellSince >= (target ? ENTER_MS : EXIT_MS)) {
+        s_inMotion = target;                              // flip after dwell
+        s_dwellSince = 0;
+    }
+    return s_inMotion;
+}
+
+// Needle inertia. The displayed heading is a damped angular spring chasing the
+// (noisy) GPS target: it accelerates toward the shortest-way target, with
+// damping, so it swings and settles like a real compass needle instead of
+// snapping. Slightly underdamped (a little overshoot) for a natural feel.
+struct NeedleSim { float angle, vel; uint32_t lastMs; bool init; };
+static NeedleSim s_compassN  = { 0, 0, 0, false };
+static NeedleSim s_wayfindN  = { 0, 0, 0, false };
+static bool      s_needleAnimating = false; // true while a needle is still settling
+
+static float needle_step(NeedleSim &n, float target) {
+    uint32_t now = millis();
+    if (!n.init || now - n.lastMs > 1000) {      // first use / returned after a gap: snap
+        n.angle = target; n.vel = 0; n.lastMs = now; n.init = true;
+        return n.angle;
+    }
+    float dt = (now - n.lastMs) / 1000.0f;
+    n.lastMs = now;
+    if (dt > 0.25f) dt = 0.25f;                  // cap to keep the integrator stable
+    float err = fmodf(target - n.angle + 540.0f, 360.0f) - 180.0f; // shortest path [-180,180]
+    const float K = 16.0f, C = 5.2f;             // stiffness / damping (~1.5s settle, slight swing)
+    n.vel   += (K * err - C * n.vel) * dt;
+    n.angle  = fmodf(n.angle + n.vel * dt + 360.0f, 360.0f);
+    if (fabsf(err) > 0.5f || fabsf(n.vel) > 2.0f) s_needleAnimating = true;
+    return n.angle;
+}
 
 enum GpsPage {
     PAGE_FIX = 0,
@@ -33,6 +91,19 @@ static GpsPage  page = PAGE_FIX;
 static bool     needClear = true;
 static uint32_t lastDraw = 0;
 static int      s_wf_target = 0; // wayfinder quick-goto cycle pointer
+
+// Compass display modes (double-press on the Compass page cycles them).
+enum CompassMode { CM_NORTH_UP = 0, CM_DIR_UP, CM_BUBBLE, CM_COUNT };
+static CompassMode compassMode = CM_NORTH_UP;
+#if HAS_OLED // only the OLED footer spells out the mode name; TFT shows it visually
+static const char* compass_mode_name(CompassMode m) {
+    switch (m) {
+        case CM_NORTH_UP: return "North Up";
+        case CM_DIR_UP:   return "Track Up";
+        default:          return "Bubble";
+    }
+}
+#endif
 
 // Waypoint Manager (Page 4) sub-state.
 enum WpState { WP_LIST = 0, WP_MENU };
@@ -81,6 +152,8 @@ void gpsview_enter() {
     wpState = WP_LIST;
     needClear = true;
     lastDraw = 0;
+    s_compassN.init = false;   // needles snap to current heading on entry
+    s_wayfindN.init = false;
 }
 
 static void clamp_wp_cursor() {
@@ -106,6 +179,10 @@ void gpsview_short_press() {
 // Double press: page action / open-or-execute the context menu.
 void gpsview_double_press() {
     needClear = true;
+    if (page == PAGE_COMPASS) {
+        compassMode = (CompassMode)((compassMode + 1) % CM_COUNT);
+        return;
+    }
     if (page == PAGE_WAYFINDER) {
         if (wp_count() > 0) { s_wf_target = (s_wf_target + 1) % wp_count(); nav_goto(s_wf_target); }
         return;
@@ -168,6 +245,9 @@ static const char* cardinal8(float h) {
     return C[((int)((h + 22.5f) / 45.0f)) & 7];
 }
 
+// Shortest signed angular difference, in (-180, 180].
+static float wrap180(float a) { return fmodf(a + 540.0f, 360.0f) - 180.0f; }
+
 // Arrow into any GFX surface (TFT canvas or OLED buffer both derive Adafruit_GFX).
 static void draw_arrow(Adafruit_GFX &g, int cx, int cy, float r, float deg, uint16_t color) {
     int tx, ty, bl_x, bl_y, br_x, br_y;
@@ -176,6 +256,17 @@ static void draw_arrow(Adafruit_GFX &g, int cx, int cy, float r, float deg, uint
     polar(cx, cy, r * 0.34f, deg - 140, &br_x, &br_y);
     g.fillTriangle(tx, ty, bl_x, bl_y, br_x, br_y, color);
     g.fillCircle(cx, cy, 2, color);
+}
+
+// Bold up-pointing navigation arrow ("you are heading this way") with a concave
+// notch at the base, like a GPS location cursor. Always points up (track-up).
+static void draw_navarrow(Adafruit_GFX &g, int cx, int cy, int r, uint16_t color) {
+    int tipY  = cy - (int)lroundf(r * 0.78f);
+    int baseY = cy + (int)lroundf(r * 0.55f);
+    int half  = (int)lroundf(r * 0.58f);
+    int notchY = cy + (int)lroundf(r * 0.12f);
+    g.fillTriangle(cx, tipY, cx - half, baseY, cx, notchY, color);
+    g.fillTriangle(cx, tipY, cx + half, baseY, cx, notchY, color);
 }
 
 static float haversine_m(float lat1, float lon1, float lat2, float lon2) {
@@ -200,19 +291,94 @@ static void fmt_distance(float m, char *buf, size_t cap) {
 }
 
 #if HAS_TFT
-// Title bar + page dots + divider + footer, drawn into the canvas.
-// Pass a custom footer to override the default page hint, and a custom title.
+// Polished header: accent title (left), live GPS status cluster + page dots
+// (right), a 2px accent rule, and a dim footer hint. Shared by every GPS page.
 static void chrome_tft(const char *footer = nullptr, const char *title = nullptr) {
-    T(8, 16, DISPLAY_CYAN, title ? title : page_title());
+    T(6, 16, DISPLAY_CYAN, title ? title : page_title());
+
+    // Status cluster: fix-quality dot + satellite count.
+    bool fix = gps_has_fix(); int sats = gps_satellites();
+    uint16_t fc = fix ? DISPLAY_GREEN : (sats > 0 ? DISPLAY_YELLOW : DISPLAY_RED);
+    cv.fillCircle(168, 10, 4, fc);
+    char sb[8]; snprintf(sb, sizeof(sb), "%d", sats);
+    Ts(178, 6, DISPLAY_WHITE, sb);
+
+    // Page position dots, far right.
     for (int i = 0; i < PAGE_COUNT; i++) {
-        int x = 188 + i * 14;
-        if (i == page) cv.fillCircle(x, 11, 4, DISPLAY_CYAN);
-        else           cv.drawCircle(x, 11, 3, DISPLAY_GRAY);
+        int x = 206 + i * 9;
+        if (i == page) cv.fillCircle(x, 9, 3, DISPLAY_CYAN);
+        else           cv.fillCircle(x, 9, 1, DISPLAY_GRAY);
     }
-    cv.drawFastHLine(0, 22, 240, DISPLAY_GRAY);
+
+    cv.fillRect(0, 20, 240, 2, DISPLAY_CYAN); // accent rule
     char f[40];
     if (!footer) { footer_text(f, sizeof(f), false); footer = f; }
-    Ts(6, 126, DISPLAY_CYAN, footer);
+    Ts(6, 126, DISPLAY_GRAY, footer);
+}
+
+// Round compass rose into the canvas. `cardRot` rotates the whole card (0 =
+// North up); `needleAngle` is the needle's on-screen angle. North-up mode uses
+// cardRot=0 + needle=heading; track-up uses cardRot=-heading + needle=0 (up).
+static void draw_rose(int cx, int cy, int r, float cardRot, float needleAngle, bool live, uint16_t ring, bool trackUp) {
+    // Secondary rose elements are bright white in day themes, themed otherwise.
+    uint16_t sec = theme_bright_ui() ? DISPLAY_WHITE : DISPLAY_GRAY;
+    cv.drawCircle(cx, cy, r, sec);                // outer bezel
+    cv.drawCircle(cx, cy, r - 3, ring);           // inner ring
+    for (int a = 0; a < 360; a += 30) {           // degree ticks (rotate with card)
+        bool card = (a % 90 == 0);
+        int x0, y0, x1, y1;
+        polar(cx, cy, r - 4, a + cardRot, &x0, &y0);
+        polar(cx, cy, r - (card ? 12 : 7), a + cardRot, &x1, &y1);
+        cv.drawLine(x0, y0, x1, y1, card ? DISPLAY_WHITE : sec);
+    }
+    static const char *CN[4] = { "N", "E", "S", "W" };
+    for (int i = 0; i < 4; i++) {                 // cardinals ride the card (N stays red)
+        int lx, ly; polar(cx, cy, r - 15, i * 90 + cardRot, &lx, &ly);
+        T(lx - 5, ly + 5, i == 0 ? DISPLAY_RED : sec, CN[i]);
+    }
+    if (trackUp) {                                // track-up: bold fixed up-arrow (always)
+        draw_navarrow(cv, cx, cy, r - 12, DISPLAY_RED); // inset so it clears the bezel
+    } else if (live) {                            // north-up: two-tone needle (kite)
+        int ntx, nty, stx, sty, lx, ly, rx, ry;
+        polar(cx, cy, r - 14, needleAngle,       &ntx, &nty);
+        polar(cx, cy, r - 14, needleAngle + 180, &stx, &sty);
+        polar(cx, cy, 6,      needleAngle + 90,  &rx, &ry);
+        polar(cx, cy, 6,      needleAngle - 90,  &lx, &ly);
+        cv.fillTriangle(ntx, nty, lx, ly, rx, ry, DISPLAY_RED);
+        cv.fillTriangle(stx, sty, lx, ly, rx, ry, sec);
+        cv.fillCircle(cx, cy, 4, DISPLAY_WHITE);
+    } else {
+        cv.fillCircle(cx, cy, 4, sec);
+    }
+}
+
+// Automotive-style "bubble" ribbon: large bold N/NE/E/... labels (and dots
+// between) drift past a fixed centre marker as you turn. `heading` in degrees.
+static void draw_ribbon(int cxc, int yMid, int halfW, float heading, bool live) {
+    const float ppd = halfW / 60.0f;              // px per degree (~+/-60 across)
+    uint16_t sec = theme_bright_ui() ? DISPLAY_WHITE : DISPLAY_GRAY;
+    uint16_t col = live ? DISPLAY_WHITE : sec;
+    int baseY = yMid + 8, ruleY = yMid + 13;
+    cv.drawFastHLine(cxc - halfW, ruleY, halfW * 2, sec);
+    for (int d = 0; d < 360; d += 15) {           // minor dots
+        if (d % 45 == 0) continue;
+        int x = cxc + (int)lroundf(wrap180(d - heading) * ppd);
+        if (x > cxc - halfW && x < cxc + halfW) cv.fillCircle(x, ruleY, 1, sec);
+    }
+    static const char *C8[8] = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
+    cv.setFont(&FreeSansBold12pt7b);
+    cv.setTextSize(1);
+    for (int i = 0; i < 8; i++) {                 // big bold labels
+        int x = cxc + (int)lroundf(wrap180(i * 45 - heading) * ppd);
+        if (x < cxc - halfW + 14 || x > cxc + halfW - 14) continue;
+        int16_t x1, y1; uint16_t w, h;
+        cv.getTextBounds(C8[i], 0, 0, &x1, &y1, &w, &h);
+        cv.setTextColor(i == 0 ? DISPLAY_RED : col);
+        cv.setCursor(x - w / 2, baseY);
+        cv.print(C8[i]);
+    }
+    cv.setFont(&FreeSans9pt7b);
+    cv.fillTriangle(cxc - 6, yMid - 16, cxc + 6, yMid - 16, cxc, yMid - 6, DISPLAY_RED); // marker
 }
 #endif
 
@@ -280,48 +446,78 @@ static void draw_fix() {
 static void draw_compass() {
     float course = gps_course_deg();
     float spd    = gps_speed_kmh();
-    bool moving  = gps_course_valid() && spd >= MOVING_KMH;
+    bool moving  = motion_state(spd, gps_course_valid());
+    static float s_lastHeading = 0.0f;
+    float shown;
+    if (moving) { shown = needle_step(s_compassN, course); s_lastHeading = shown; }
+    else        shown = s_lastHeading; // no data: hold the last known heading
     char hdg[8], spdbuf[12];
-    if (moving) snprintf(hdg, sizeof(hdg), "%03d", ((int)lroundf(course)) % 360);
-    else        snprintf(hdg, sizeof(hdg), "MOVE");
+    if (moving) snprintf(hdg, sizeof(hdg), "%03d", ((int)lroundf(shown)) % 360);
+    else        snprintf(hdg, sizeof(hdg), "---"); // stopped: the hub dot says it, no imperative
     snprintf(spdbuf, sizeof(spdbuf), "%.1f km/h", spd);
-    uint16_t needle = moving ? DISPLAY_RED : DISPLAY_GRAY;
-    uint16_t ring   = moving ? DISPLAY_WHITE : DISPLAY_GRAY; // dim the rose when stationary
+    // Bright white in day themes; dim only the stationary state in Night/Amber.
+    uint16_t ring = (moving || theme_bright_ui()) ? DISPLAY_WHITE : DISPLAY_GRAY;
+
+    // Track-up rotates the card so the heading is up (held when stopped); bubble
+    // is a flat ribbon. North-up keeps the card fixed and turns the needle.
+    float cardRot = (compassMode == CM_DIR_UP) ? -shown : 0.0f;
+    float needleA = (compassMode == CM_DIR_UP) ? 0.0f : shown;
 
 #if HAS_OLED
-    // Bands: title 0-8, divider @9, content 11-53, footer @55.
     display_draw_text_small_abs(0, 0, DISPLAY_CYAN, "Compass");
     display_draw_text_small_abs(108, 0, DISPLAY_CYAN, "2/4");
     display_draw_hline(0, 9, 128, DISPLAY_GRAY);
-    const int cx = 21, cy = 32, r = 12;           // circle fits y20-44, clear of bands
-    tft.drawCircle(cx, cy, r, ring);
-    display_draw_text_small_abs(cx - 2, cy - r - 9, DISPLAY_WHITE, "N"); // y11
-    display_draw_text_small_abs(cx - 2, cy + r + 1, DISPLAY_WHITE, "S"); // y45
-    display_draw_text_small_abs(cx - r - 7, cy - 3, DISPLAY_WHITE, "W");
-    display_draw_text_small_abs(cx + r + 2, cy - 3, DISPLAY_WHITE, "E");
-    if (moving) draw_arrow(tft, cx, cy, r - 2, course, needle);
-    else        tft.fillCircle(cx, cy, 2, DISPLAY_WHITE); // hub dot, no center text
-    char hb[12]; snprintf(hb, sizeof(hb), "%s %s", hdg, moving ? cardinal8(course) : "");
-    display_draw_text_small_abs(46, 18, DISPLAY_WHITE, hb);
-    display_draw_text_small_abs(46, 34, DISPLAY_WHITE, spdbuf);
-    char f[20]; footer_text(f, sizeof(f), true);
+    uint16_t needle = moving ? DISPLAY_RED : DISPLAY_GRAY;
+    if (compassMode == CM_BUBBLE) {
+        const int cxc = 64, yb = 13; const float ppd = 56.0f / 55.0f;
+        display_draw_hline(cxc - 56, yb + 11, 112, DISPLAY_WHITE);
+        for (int d = 0; d < 360; d += 15) {
+            if (d % 45 == 0) continue;
+            int x = cxc + (int)lroundf(wrap180(d - shown) * ppd);
+            if (x > cxc - 56 && x < cxc + 56) tft.drawPixel(x, yb + 11, DISPLAY_WHITE);
+        }
+        static const char *C8[8] = { "N","NE","E","SE","S","SW","W","NW" };
+        for (int i = 0; i < 8; i++) {
+            int x = cxc + (int)lroundf(wrap180(i * 45 - shown) * ppd);
+            if (x < cxc - 52 || x > cxc + 52) continue;
+            int w = strlen(C8[i]) * 6;
+            display_draw_text_small_abs(x - w / 2, yb, DISPLAY_WHITE, C8[i]);
+        }
+        display_draw_vline(cxc, yb - 3, 6, DISPLAY_WHITE); // centre marker
+    } else {
+        const int cx = 21, cy = 32, r = 12;
+        tft.drawCircle(cx, cy, r, ring);
+        static const char *CN[4] = { "N","E","S","W" };
+        for (int i = 0; i < 4; i++) {
+            int lx, ly; polar(cx, cy, r + 4, i * 90 + cardRot, &lx, &ly);
+            display_draw_text_small_abs(lx - 2, ly - 3, DISPLAY_WHITE, CN[i]);
+        }
+        if (compassMode == CM_DIR_UP) draw_navarrow(tft, cx, cy, r - 2, DISPLAY_WHITE); // always
+        else if (moving)              draw_arrow(tft, cx, cy, r - 2, needleA, needle);
+        else                          tft.fillCircle(cx, cy, 2, DISPLAY_WHITE);
+    }
+    char hb[14]; snprintf(hb, sizeof(hb), "%s %s", hdg, moving ? cardinal8(shown) : "");
+    display_draw_text_small_abs(46, 30, DISPLAY_WHITE, hb);
+    display_draw_text_small_abs(46, 42, DISPLAY_WHITE, spdbuf);
+    char f[22]; snprintf(f, sizeof(f), "S:Pg D:%s L:Bk", compass_mode_name(compassMode));
     display_draw_text_small_abs(0, 55, DISPLAY_CYAN, f);
 #else
-    // Bands: title/divider 0-22, content 24-122, footer @126.
-    chrome_tft();
-    const int cx = 54, cy = 72, r = 28;           // circle y44-100, fully inside content
-    cv.drawCircle(cx, cy, r, ring);
-    T(cx - 6, cy - r - 4, DISPLAY_CYAN, "N");      // baseline 40
-    T(cx - 6, cy + r + 16, DISPLAY_CYAN, "S");     // baseline 116
-    T(cx - r - 18, cy + 5, DISPLAY_CYAN, "W");
-    T(cx + r + 5, cy + 5, DISPLAY_CYAN, "E");
-    if (moving) draw_arrow(cv, cx, cy, r - 4, course, needle);
-    else        cv.fillCircle(cx, cy, 3, DISPLAY_GRAY); // hub dot, no center text
-    Ts(118, 38, DISPLAY_CYAN, "HEADING");
-    T(118, 74, moving ? DISPLAY_GREEN : DISPLAY_GRAY, hdg, 2);
-    if (moving) T(188, 66, DISPLAY_WHITE, cardinal8(course));
-    Ts(118, 92, DISPLAY_CYAN, "SPEED");
-    T(118, 116, DISPLAY_WHITE, spdbuf);
+    // Mode is conveyed by the centre symbol (needle / up-arrow / ribbon), so no
+    // text label is needed -- gives the rose and readout their full space back.
+    chrome_tft("Short:Page  Dbl:Mode  Long:Back");
+    if (compassMode == CM_BUBBLE) {
+        draw_ribbon(120, 58, 112, shown, moving);
+        T(78, 110, moving ? DISPLAY_GREEN : DISPLAY_GRAY, hdg, 2);
+        if (moving) T(150, 102, DISPLAY_WHITE, cardinal8(shown));
+        Ts(8, 118, DISPLAY_GRAY, spdbuf);
+    } else {
+        draw_rose(60, 74, 44, cardRot, needleA, moving, ring, compassMode == CM_DIR_UP);
+        Ts(120, 38, DISPLAY_GRAY, "HEADING");
+        T(120, 74, moving ? DISPLAY_GREEN : DISPLAY_GRAY, hdg, 2);
+        if (moving) T(190, 66, DISPLAY_WHITE, cardinal8(shown));
+        Ts(120, 96, DISPLAY_GRAY, "SPEED");
+        T(120, 118, DISPLAY_WHITE, spdbuf);
+    }
 #endif
 }
 
@@ -352,7 +548,7 @@ static void draw_wayfinder() {
     bool fix     = gps_has_fix();
     float course = gps_course_deg();
     float spd    = gps_speed_kmh();
-    bool moving  = gps_course_valid() && spd >= MOVING_KMH;
+    bool moving  = motion_state(spd, gps_course_valid());
     float dist = 0, brg = 0;
     if (fix) {
         dist = haversine_m(gps_latitude(), gps_longitude(), w->lat, w->lon);
@@ -360,6 +556,7 @@ static void draw_wayfinder() {
     }
     bool arrived = nav_arrived_final();
     float arrow = moving ? fmodf(brg - course + 360.0f, 360.0f) : brg;
+    float shownArrow = needle_step(s_wayfindN, arrow); // inertial swing, like the compass
     uint16_t acol = arrived ? DISPLAY_GREEN : (moving ? DISPLAY_CYAN : DISPLAY_GRAY);
 
     char distbuf[12], brgbuf[8], etabuf[8], tgt[20];
@@ -381,7 +578,7 @@ static void draw_wayfinder() {
     tft.drawCircle(cx, cy, r, DISPLAY_WHITE);
     if (!fix)         display_draw_text_small_abs(cx - 6, cy - 3, DISPLAY_WHITE, "NF");
     else if (arrived) display_draw_text_small_abs(cx - 6, cy - 3, DISPLAY_GREEN, "HR");
-    else              draw_arrow(tft, cx, cy, r - 2, arrow, acol);
+    else              draw_arrow(tft, cx, cy, r - 2, shownArrow, acol);
     char rb[16];
     display_draw_text_small_abs(44, 16, DISPLAY_WHITE, distbuf);
     snprintf(rb, sizeof(rb), "BRG %s", brgbuf); display_draw_text_small_abs(44, 28, DISPLAY_WHITE, rb);
@@ -394,12 +591,12 @@ static void draw_wayfinder() {
     cv.drawCircle(cx, cy, r, DISPLAY_WHITE);
     if (!fix)         T(cx - 22, cy + 5, DISPLAY_WHITE, "NoFix");
     else if (arrived) T(cx - 22, cy + 5, DISPLAY_GREEN, "HERE");
-    else              draw_arrow(cv, cx, cy, r - 4, arrow, acol);
-    Ts(116, 38, DISPLAY_CYAN, "DIST");
+    else              draw_arrow(cv, cx, cy, r - 4, shownArrow, acol);
+    Ts(116, 38, DISPLAY_GRAY, "DIST");
     T(116, 64, arrived ? DISPLAY_GREEN : DISPLAY_WHITE, distbuf);
-    Ts(116, 82, DISPLAY_CYAN, "BRG");
+    Ts(116, 82, DISPLAY_GRAY, "BRG");
     T(116, 106, DISPLAY_WHITE, brgbuf);
-    Ts(178, 82, DISPLAY_CYAN, "ETA");
+    Ts(178, 82, DISPLAY_GRAY, "ETA");
     T(178, 106, DISPLAY_WHITE, etabuf);
 #endif
 }
@@ -612,9 +809,15 @@ static void wp_menu_execute(int sel) {
 
 void gpsview_update() {
     uint32_t now = millis();
-    if (!needClear && now - lastDraw < 250) return;
+    // Animate the needle pages fast while a needle is still settling, idle slow
+    // otherwise to save power and SPI bandwidth.
+    uint32_t interval = 250;
+    if (page == PAGE_COMPASS || page == PAGE_WAYFINDER)
+        interval = s_needleAnimating ? 70 : 250;
+    if (!needClear && now - lastDraw < interval) return;
     lastDraw = now;
     needClear = false;
+    s_needleAnimating = false; // re-set by needle_step during this frame's draw
 
 #if HAS_OLED
     display_clear();

@@ -74,12 +74,7 @@ static void drawStats() {
 
     char buf[40];
 
-#if HAS_OLED
-    display_draw_text_abs(20, 0, DISPLAY_CYAN, statsPage == 0 ? "Stats: Activity" : "Stats: Top Nodes");
-    display_draw_hline(0, 10, 128, DISPLAY_GRAY);
-#else
-    display_draw_text_line(50, 15, DISPLAY_CYAN, statsPage == 0 ? "Stats: Activity" : "Stats: Top Nodes");
-#endif
+    ui_header(statsPage == 0 ? "Stats: Activity" : "Stats: Top Nodes");
 
     if (statsPage == 0) {
         int ppm = packetsPerMinute();

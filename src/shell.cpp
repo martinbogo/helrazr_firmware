@@ -13,6 +13,9 @@
 #include "gps.h"
 #include "lora.h"
 #include "waypoints.h"
+#include "theme.h"
+#include "modes.h"
+#include "menu.h"
 
 static char linebuf[128];
 static int linepos = 0;
@@ -71,6 +74,7 @@ static void print_help() {
     Serial.println("  lora freq <MHz>   Set frequency");
     Serial.println("  lora bw <kHz>     Set bandwidth");
     Serial.println("  lora sf <7-12>    Set spreading factor");
+    Serial.println("  theme [name|next] Set/cycle color theme");
     Serial.println("  display on        Turn display on");
     Serial.println("  display off       Turn display off");
     Serial.println("  led on|off        Toggle LED");
@@ -256,6 +260,19 @@ static void process_line(char* line) {
         } else {
             Serial.println("SF must be 5-12");
         }
+    } else if (startsWith(line, "theme")) {
+        const char *arg = line + 5;
+        while (*arg == ' ') arg++;
+        if (strcmp(arg, "next") == 0) {
+            theme_next();
+        } else if (*arg) {
+            for (int i = 0; i < theme_count(); i++)
+                if (strcasecmp(arg, theme_name(i)) == 0) { theme_set(i); break; }
+        }
+        Serial.printf("Theme: %s  [", theme_name(theme_current()));
+        for (int i = 0; i < theme_count(); i++) Serial.printf("%s%s", i ? " " : "", theme_name(i));
+        Serial.println("]");
+        if (currentMode == MODE_MENU) { menu_init(); menu_draw(); } // re-skin now
     } else if (strcmp(line, "display on") == 0) {
         display_on();
         Serial.println("Display on");

@@ -11,6 +11,7 @@
 #include "button.h"
 #include "display.h"
 #include "gps.h"
+#include "theme.h"
 
 // Cursor position as a 0-based index into the *visible* menu list (below).
 static int selected = 0;
@@ -33,16 +34,20 @@ static const char* LABELS[] = {
     "Standby",
     "OTA Update",
     "GPS",
+    "Settings",
 };
 
 // Menu display order, independent of enum order. Edit this to reorder the menu.
-// GPS sits right after Status so it lands on the first page on both displays.
+// GPS sits right after Status so it lands on the first page on both displays;
+// Settings sits near the end.
 static const AppMode MENU_ORDER[] = {
     MODE_STATUS, MODE_GPS, MODE_SPECTRUM, MODE_WATERFALL, MODE_NOISE,
     MODE_SCANNER, MODE_MONITOR, MODE_DUTY, MODE_FREQOFFSET, MODE_DECODER,
-    MODE_NODES, MODE_STATS, MODE_AUTOTRACK, MODE_STANDBY, MODE_OTA,
+    MODE_NODES, MODE_STATS, MODE_AUTOTRACK, MODE_SETTINGS, MODE_STANDBY, MODE_OTA,
 };
 static const int MENU_ORDER_COUNT = sizeof(MENU_ORDER) / sizeof(MENU_ORDER[0]);
+
+static const char* menu_label(AppMode m) { return LABELS[m]; }
 
 // A mode is hidden when its hardware/feature isn't available.
 static bool mode_visible(AppMode m) {
@@ -102,13 +107,7 @@ void menu_draw() {
 #endif
     last_page = page;
 
-#if HAS_OLED
-    display_draw_text_abs(25, 0, DISPLAY_CYAN, "Select Mode");
-    display_draw_hline(0, 10, 128, DISPLAY_GRAY);
-#else
-    display_draw_text_line(55, 15, DISPLAY_CYAN, "Select Mode");
-    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
-#endif
+    ui_header("Select Mode");
 
     AppMode vis[MODE_COUNT];
     int n = build_visible(vis);
@@ -125,9 +124,9 @@ void menu_draw() {
             if (i <= endIndex) {
                 if (i == selected) {
                     display_fill_rect_abs(col * 64, y - 1, 62, 9, DISPLAY_CYAN);
-                    display_draw_text_small_abs(x, y, DISPLAY_BLACK, LABELS[vis[i]]);
+                    display_draw_text_small_abs(x, y, DISPLAY_BLACK, menu_label(vis[i]));
                 } else {
-                    display_draw_text_small_abs(x, y, DISPLAY_WHITE, LABELS[vis[i]]);
+                    display_draw_text_small_abs(x, y, DISPLAY_WHITE, menu_label(vis[i]));
                 }
             }
         }
@@ -140,10 +139,10 @@ void menu_draw() {
             if (i <= endIndex) {
                 if (i == selected) {
                     display_line_fill_rect(cx, 118, DISPLAY_CYAN);
-                    display_line_text(cx + 4, DISPLAY_BLACK, LABELS[vis[i]]);
+                    display_line_text(cx + 4, DISPLAY_BLACK, menu_label(vis[i]));
                 } else {
                     display_line_fill_rect(cx, 118, DISPLAY_BLACK);
-                    display_line_text(cx + 4, DISPLAY_WHITE, LABELS[vis[i]]);
+                    display_line_text(cx + 4, DISPLAY_WHITE, menu_label(vis[i]));
                 }
             } else {
                 display_line_fill_rect(cx, 118, DISPLAY_BLACK);
@@ -153,11 +152,7 @@ void menu_draw() {
 #endif
     }
 
-#if HAS_OLED
-    display_draw_text_small_abs(0, 56, DISPLAY_CYAN, "S:nx  D:pv  L:sel");
-#else
-    display_draw_text_small_line(4, 126, DISPLAY_CYAN, "S:nxt  D:prv  L:sel");
-#endif
+    ui_footer("S:next  D:prev  L:select");
 
     display_update_buffer();
 }

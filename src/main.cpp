@@ -32,6 +32,8 @@
 #include "ble_ota.h"
 #include "gpsview.h"
 #include "waypoints.h"
+#include "theme.h"
+#include "settings.h"
 
 AppMode currentMode = MODE_MENU;
 
@@ -98,6 +100,7 @@ static void enter_mode(AppMode m) {
         case MODE_STATS:     stats_enter(); lora_start_listen(); break;
         case MODE_AUTOTRACK: autotrack_enter(); break;
         case MODE_GPS:       lora_stop_listen(); gpsview_enter(); break;
+        case MODE_SETTINGS:  settings_enter(); break;
         case MODE_OTA:       lora_stop_listen(); ble_ota_enter(); break;
         case MODE_STANDBY: {
             // Show shutdown screen briefly before entering deep sleep
@@ -146,6 +149,7 @@ void setup() {
 
     Serial.println("Initializing display...");
     display_init();
+    theme_init();
 
     Serial.println("Initializing GPS...");
     gps_init();
@@ -336,6 +340,17 @@ void loop() {
         }
     }
 
+    if (currentMode == MODE_SETTINGS) {
+        if (button_double_pressed()) {
+            settings_double_press();
+            return;
+        }
+        if (button_short_pressed()) {
+            settings_short_press();
+            return;
+        }
+    }
+
     switch (currentMode) {
         case MODE_STATUS: {
             if (now - lastStatusUpdate >= 1000) {
@@ -362,6 +377,7 @@ void loop() {
         case MODE_STATS:     stats_update();              break;
         case MODE_AUTOTRACK: autotrack_update();          break;
         case MODE_GPS:       gpsview_update();            break;
+        case MODE_SETTINGS:  settings_update();           break;
         case MODE_OTA:       ble_ota_update();            break;
         default: break;
     }

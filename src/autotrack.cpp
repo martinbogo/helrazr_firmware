@@ -50,9 +50,8 @@ static void doScan() {
 static void drawScreen() {
     display_clear();
     char buf[40];
+    ui_header("Auto Tracker");
 #if HAS_OLED
-    display_draw_text_abs(15, 0, DISPLAY_CYAN, "Auto Freq Tracker");
-    display_draw_hline(0, 10, 128, DISPLAY_GRAY);
     snprintf(buf, sizeof(buf), "Freq: %.2f MHz", lockedFreq);
     display_draw_text_small_abs(0, 15, DISPLAY_GREEN, buf);
     snprintf(buf, sizeof(buf), "RSSI: %ddBm", (int)lockedRSSI);
@@ -65,7 +64,6 @@ static void drawScreen() {
     snprintf(buf, sizeof(buf), "Nodes: %d", nodetracker_count());
     display_draw_text_small_abs(0, 55, DISPLAY_CYAN, buf);
 #else
-    display_draw_text_line(35, 15, DISPLAY_CYAN, "Auto Freq Tracker");
     snprintf(buf, sizeof(buf), "Freq: %.3f MHz", lockedFreq);
     display_draw_text_line(0, 42, DISPLAY_GREEN, buf);
     snprintf(buf, sizeof(buf), "RSSI: %d dBm", (int)lockedRSSI);
@@ -77,18 +75,16 @@ static void drawScreen() {
     display_draw_text_line(0, 96, DISPLAY_CYAN, buf);
     snprintf(buf, sizeof(buf), "Nodes heard: %d", nodetracker_count());
     display_draw_text_line(0, 114, DISPLAY_CYAN, buf);
-    display_draw_hline(0, 20, 240, DISPLAY_GRAY);
 #endif
 }
 
 void autotrack_enter() {
     totalPkts = 0; lastRescanMs = 0;
     display_clear();
+    ui_header("Auto Tracker");
 #if HAS_OLED
-    display_draw_text_abs(15, 0, DISPLAY_CYAN, "Auto Freq Tracker");
     display_draw_text_small_abs(20, 30, DISPLAY_CYAN, "Scanning band...");
 #else
-    display_draw_text_abs(35, 15, DISPLAY_CYAN, "Auto Freq Tracker");
     display_draw_text_abs(30, 70, DISPLAY_CYAN, "Scanning band...");
 #endif
     doScan();
