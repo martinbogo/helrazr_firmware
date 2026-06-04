@@ -168,6 +168,78 @@ bool gps_is_m100_ok() {
 #endif
 }
 
+float gps_course_deg() {
+#if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
+    if (m100_ok && parser->getFixType() > 0)
+        return parser->getHeading() / 100000.0f; // headMot, deg * 1e-5
+    return -1.0f;
+#else
+    return (parser.course.isValid() && parser.course.age() < 3000)
+        ? (float)parser.course.deg() : -1.0f;
+#endif
+}
+
+bool gps_course_valid() {
+    return gps_course_deg() >= 0.0f;
+}
+
+float gps_hdop() {
+#if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
+    // u-blox exposes PDOP; report it as the dilution figure (PDOP >= HDOP).
+    return m100_ok ? parser->getPDOP() / 100.0f : 0.0f;
+#else
+    return parser.hdop.isValid() ? (float)parser.hdop.hdop() : 0.0f;
+#endif
+}
+
+bool gps_present() {
+#if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
+    return m100_ok;
+#else
+    // L76K has no init handshake; presence = NMEA bytes are flowing in.
+    return parser.charsProcessed() > 10;
+#endif
+}
+
+bool gps_time_valid() {
+#if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
+    return m100_ok && parser->getFixType() > 0;
+#else
+    return parser.date.isValid() && parser.time.isValid();
+#endif
+}
+
+void gps_datetime(int *year, int *mon, int *day, int *hour, int *min, int *sec) {
+    int y = 0, mo = 0, d = 0, h = 0, mi = 0, s = 0;
+#if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100
+    if (m100_ok && parser->getFixType() > 0) {
+        y  = parser->getYear();
+        mo = parser->getMonth();
+        d  = parser->getDay();
+        h  = parser->getHour();
+        mi = parser->getMinute();
+        s  = parser->getSecond();
+    }
+#else
+    if (parser.date.isValid()) {
+        y  = parser.date.year();
+        mo = parser.date.month();
+        d  = parser.date.day();
+    }
+    if (parser.time.isValid()) {
+        h  = parser.time.hour();
+        mi = parser.time.minute();
+        s  = parser.time.second();
+    }
+#endif
+    if (year) *year = y;
+    if (mon)  *mon  = mo;
+    if (day)  *day  = d;
+    if (hour) *hour = h;
+    if (min)  *min  = mi;
+    if (sec)  *sec  = s;
+}
+
 void gps_cmd_raw() {
 #if HAS_GPS && defined(PIN_GPS_RX) && defined(PIN_GPS_TX)
     Serial.println("--- GPS Raw (5s) ---");
@@ -268,6 +340,15 @@ int gps_satellites() { return 0; }
 bool gps_has_fix() { return false; }
 uint32_t gps_chars_processed() { return 0; }
 bool gps_is_m100_ok() { return false; }
+float gps_course_deg() { return -1.0f; }
+bool gps_course_valid() { return false; }
+float gps_hdop() { return 0.0f; }
+bool gps_present() { return false; }
+bool gps_time_valid() { return false; }
+void gps_datetime(int *year, int *mon, int *day, int *hour, int *min, int *sec) {
+    if (year) *year = 0; if (mon) *mon = 0; if (day) *day = 0;
+    if (hour) *hour = 0; if (min) *min = 0; if (sec) *sec = 0;
+}
 void gps_cmd_raw() { Serial.println("No GPS hardware"); }
 void gps_cmd_init() { Serial.println("No GPS hardware"); }
 void gps_cmd_monitor() { Serial.println("No GPS hardware"); }

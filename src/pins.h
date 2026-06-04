@@ -47,7 +47,7 @@
 // --- Battery ADC ---
 #define PIN_BAT_ADC        4  // P0.04  (AIN2)
 #define PIN_BAT_ADC_EN     6  // P0.06  (HIGH enables voltage divider)
-#define BAT_ADC_MULTIPLIER 4.916f
+#define BAT_ADC_MULTIPLIER 5.044f // Calibrated against 4.207V cell (was 4.916f)
 
 // --- LED & Button ---
 #define PIN_LED           35  // P1.03  (active LOW)
@@ -78,7 +78,7 @@
 // --- Battery ADC ---
 #define PIN_BAT_ADC       1
 #define PIN_BAT_ADC_EN    37
-#define BAT_ADC_MULTIPLIER 4.916f // Adjust as needed for v3
+#define BAT_ADC_MULTIPLIER 5.044f // Calibrated against 4.207V cell (was 4.916f)
 
 // --- LED & Button ---
 #define PIN_LED           35  // onboard white LED
@@ -109,7 +109,7 @@
 // --- Battery ADC ---
 #define PIN_BAT_ADC       1
 #define PIN_BAT_ADC_EN    37
-#define BAT_ADC_MULTIPLIER 4.916f
+#define BAT_ADC_MULTIPLIER 5.044f // Calibrated against 4.207V cell (was 4.916f)
 
 // --- LED & Button ---
 #define PIN_LED           35

@@ -10,11 +10,14 @@
 #include "menu.h"
 #include "button.h"
 #include "display.h"
+#include "gps.h"
 
-static int selected = 1;
+// Cursor position as a 0-based index into the *visible* menu list (below).
+static int selected = 0;
 
+// Label per AppMode, indexed by enum value.
 static const char* LABELS[] = {
-    "",
+    "",            // MODE_MENU
     "Status",
     "Spectrum",
     "Waterfall",
@@ -29,7 +32,37 @@ static const char* LABELS[] = {
     "AutoTrack",
     "Standby",
     "OTA Update",
+    "GPS",
 };
+
+// Menu display order, independent of enum order. Edit this to reorder the menu.
+// GPS sits right after Status so it lands on the first page on both displays.
+static const AppMode MENU_ORDER[] = {
+    MODE_STATUS, MODE_GPS, MODE_SPECTRUM, MODE_WATERFALL, MODE_NOISE,
+    MODE_SCANNER, MODE_MONITOR, MODE_DUTY, MODE_FREQOFFSET, MODE_DECODER,
+    MODE_NODES, MODE_STATS, MODE_AUTOTRACK, MODE_STANDBY, MODE_OTA,
+};
+static const int MENU_ORDER_COUNT = sizeof(MENU_ORDER) / sizeof(MENU_ORDER[0]);
+
+// A mode is hidden when its hardware/feature isn't available.
+static bool mode_visible(AppMode m) {
+    if (m == MODE_GPS) {
+#if HAS_GPS
+        return gps_present();
+#else
+        return false;
+#endif
+    }
+    return true;
+}
+
+// Builds the currently-visible ordered list into `out`; returns its length.
+static int build_visible(AppMode *out) {
+    int n = 0;
+    for (int i = 0; i < MENU_ORDER_COUNT; i++)
+        if (mode_visible(MENU_ORDER[i])) out[n++] = MENU_ORDER[i];
+    return n;
+}
 
 static int last_page = -1;
 
@@ -38,12 +71,16 @@ void menu_init() {
 }
 
 void menu_update() {
+    AppMode vis[MODE_COUNT];
+    int n = build_visible(vis);
+    if (selected >= n) selected = n - 1;   // list may have shrunk (GPS appeared/left)
+    if (selected < 0)  selected = 0;
     if (button_short_pressed()) {
         selected++;
-        if (selected >= MODE_COUNT) selected = 1;
+        if (selected >= n) selected = 0;
     } else if (button_double_pressed()) {
         selected--;
-        if (selected <= 0) selected = MODE_COUNT - 1;
+        if (selected < 0) selected = n - 1;
     }
 }
 
@@ -54,7 +91,7 @@ void menu_draw() {
     const int MAX_ROWS = 5;
 #endif
     const int ITEMS_PER_PAGE = MAX_ROWS * 2;
-    int page = (selected - 1) / ITEMS_PER_PAGE;
+    int page = selected / ITEMS_PER_PAGE;
 
 #if HAS_OLED
     display_clear();
@@ -73,9 +110,11 @@ void menu_draw() {
     display_draw_hline(0, 20, 240, DISPLAY_GRAY);
 #endif
 
-    int startIndex = page * ITEMS_PER_PAGE + 1;
+    AppMode vis[MODE_COUNT];
+    int n = build_visible(vis);
+    int startIndex = page * ITEMS_PER_PAGE;
     int endIndex = startIndex + ITEMS_PER_PAGE - 1;
-    if (endIndex >= MODE_COUNT) endIndex = MODE_COUNT - 1;
+    if (endIndex >= n) endIndex = n - 1;
 
     for (int row = 0; row < MAX_ROWS; row++) {
 #if HAS_OLED
@@ -86,9 +125,9 @@ void menu_draw() {
             if (i <= endIndex) {
                 if (i == selected) {
                     display_fill_rect_abs(col * 64, y - 1, 62, 9, DISPLAY_CYAN);
-                    display_draw_text_small_abs(x, y, DISPLAY_BLACK, LABELS[i]);
+                    display_draw_text_small_abs(x, y, DISPLAY_BLACK, LABELS[vis[i]]);
                 } else {
-                    display_draw_text_small_abs(x, y, DISPLAY_WHITE, LABELS[i]);
+                    display_draw_text_small_abs(x, y, DISPLAY_WHITE, LABELS[vis[i]]);
                 }
             }
         }
@@ -101,10 +140,10 @@ void menu_draw() {
             if (i <= endIndex) {
                 if (i == selected) {
                     display_line_fill_rect(cx, 118, DISPLAY_CYAN);
-                    display_line_text(cx + 4, DISPLAY_BLACK, LABELS[i]);
+                    display_line_text(cx + 4, DISPLAY_BLACK, LABELS[vis[i]]);
                 } else {
                     display_line_fill_rect(cx, 118, DISPLAY_BLACK);
-                    display_line_text(cx + 4, DISPLAY_WHITE, LABELS[i]);
+                    display_line_text(cx + 4, DISPLAY_WHITE, LABELS[vis[i]]);
                 }
             } else {
                 display_line_fill_rect(cx, 118, DISPLAY_BLACK);
@@ -123,7 +162,13 @@ void menu_draw() {
     display_update_buffer();
 }
 
-AppMode menu_selection() { return (AppMode)selected; }
+AppMode menu_selection() {
+    AppMode vis[MODE_COUNT];
+    int n = build_visible(vis);
+    if (selected < 0)  selected = 0;
+    if (selected >= n) selected = n - 1;
+    return vis[selected];
+}
 
 #define NUM_DROPS 15
 struct MatrixDrop {

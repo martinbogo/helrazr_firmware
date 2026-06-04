@@ -12,6 +12,7 @@
 #include "display.h"
 #include "gps.h"
 #include "lora.h"
+#include "waypoints.h"
 
 static char linebuf[128];
 static int linepos = 0;
@@ -47,6 +48,23 @@ static void print_help() {
     Serial.println("  gps init          Re-init M100 with debug");
     Serial.println("  gps monitor       Live GPS data (30s)");
     Serial.println("  gps test          Pin/baud diagnostic");
+    Serial.println("  gps export        Dump waypoints+track as GPX");
+    Serial.println("  gps export csv    Dump waypoints+track as CSV");
+    Serial.println("  wp list           List stored waypoints");
+    Serial.println("  wp mark           Mark current position");
+    Serial.println("  wp add <la> <lo> [name]  Add by coordinates");
+    Serial.println("  wp del <i>        Delete waypoint i");
+    Serial.println("  wp rename <i> <name>     Rename waypoint i");
+    Serial.println("  wp edit <i> <la> <lo> [alt]  Edit coords");
+    Serial.println("  wp move <from> <to>      Reorder waypoint");
+    Serial.println("  wp project <i> <brg> <dist> [name]  Project new wp");
+    Serial.println("  wp sort near|name Reorder list");
+    Serial.println("  wp clear          Delete all waypoints");
+    Serial.println("  goto <i>          Navigate to waypoint i");
+    Serial.println("  route start [i]   Start route navigation");
+    Serial.println("  route stop        Stop navigation");
+    Serial.println("  track start|stop  Toggle track recording");
+    Serial.println("  track clear       Erase recorded track");
     Serial.println("  lora              LoRa info");
     Serial.println("  lora listen       Start receiving");
     Serial.println("  lora stop         Stop receiving");
@@ -127,6 +145,88 @@ static void process_line(char* line) {
         gps_cmd_init();
     } else if (strcmp(line, "gps monitor") == 0) {
         gps_cmd_monitor();
+    } else if (strcmp(line, "gps export") == 0) {
+        gps_export_gpx(Serial);
+    } else if (strcmp(line, "gps export csv") == 0) {
+        gps_export_csv(Serial);
+    } else if (strcmp(line, "wp list") == 0) {
+        Serial.printf("%d waypoint(s):\n", wp_count());
+        for (int i = 0; i < wp_count(); i++) {
+            const Waypoint* w = wp_get(i);
+            Serial.printf("  %d %-8s %.6f, %.6f  %.1fm\n", i, w->name, w->lat, w->lon, w->alt);
+        }
+    } else if (strcmp(line, "wp mark") == 0) {
+        if (!gps_has_fix()) {
+            Serial.println("No fix; cannot mark");
+        } else {
+            int idx = wp_add(gps_latitude(), gps_longitude(), gps_altitude());
+            if (idx < 0) Serial.println("Waypoint store full");
+            else Serial.printf("Marked %s\n", wp_get(idx)->name);
+        }
+    } else if (strcmp(line, "wp clear") == 0) {
+        while (wp_count() > 0) wp_delete(0);
+        Serial.println("Waypoints cleared");
+    } else if (startsWith(line, "wp add ")) {
+        float la, lo; char nm[12] = {0};
+        int k = sscanf(line + 7, "%f %f %11s", &la, &lo, nm);
+        if (k >= 2) { int i = wp_add_named(la, lo, 0.0f, k >= 3 ? nm : nullptr);
+            if (i < 0) Serial.println("Store full"); else Serial.printf("Added %s\n", wp_get(i)->name); }
+        else Serial.println("Usage: wp add <lat> <lon> [name]");
+    } else if (startsWith(line, "wp del ")) {
+        int i = atoi(line + 7);
+        Serial.println(wp_delete(i) ? "Deleted" : "Bad index");
+    } else if (startsWith(line, "wp rename ")) {
+        int i; char nm[12];
+        if (sscanf(line + 10, "%d %11s", &i, nm) == 2 && wp_rename(i, nm)) Serial.printf("Renamed %d -> %s\n", i, nm);
+        else Serial.println("Usage: wp rename <i> <name>");
+    } else if (startsWith(line, "wp edit ")) {
+        int i; float la, lo, al = 0;
+        int k = sscanf(line + 8, "%d %f %f %f", &i, &la, &lo, &al);
+        const Waypoint* w = wp_get(i);
+        if (k >= 3 && w && wp_edit(i, la, lo, k >= 4 ? al : w->alt)) Serial.println("Edited");
+        else Serial.println("Usage: wp edit <i> <lat> <lon> [alt]");
+    } else if (startsWith(line, "wp move ")) {
+        int a, b;
+        if (sscanf(line + 8, "%d %d", &a, &b) == 2 && wp_move(a, b)) Serial.printf("Moved %d -> %d\n", a, b);
+        else Serial.println("Usage: wp move <from> <to>");
+    } else if (startsWith(line, "wp project ")) {
+        int i; float brg, dist; char nm[12] = {0};
+        int k = sscanf(line + 11, "%d %f %f %11s", &i, &brg, &dist, nm);
+        if (k >= 3) { int j = wp_project(i, brg, dist, k >= 4 ? nm : nullptr);
+            if (j < 0) Serial.println("Bad index or full"); else Serial.printf("Projected %s\n", wp_get(j)->name); }
+        else Serial.println("Usage: wp project <i> <brg> <dist_m> [name]");
+    } else if (strcmp(line, "wp sort near") == 0) {
+        if (gps_has_fix()) { wp_sort_nearest(gps_latitude(), gps_longitude()); Serial.println("Sorted by distance"); }
+        else Serial.println("No fix");
+    } else if (strcmp(line, "wp sort name") == 0) {
+        wp_sort_name(); Serial.println("Sorted by name");
+    } else if (startsWith(line, "goto ")) {
+        int i = atoi(line + 5);
+        if (wp_get(i)) { nav_goto(i); Serial.printf("Go To %s\n", wp_get(i)->name); }
+        else Serial.println("Bad index");
+    } else if (startsWith(line, "route start")) {
+        int from = 0; sscanf(line + 11, "%d", &from);
+        nav_route_start(from);
+        if (nav_mode() == NAV_ROUTE) Serial.printf("Route started, leg %d/%d\n", nav_route_leg(), nav_route_total());
+        else Serial.println("No waypoints");
+    } else if (strcmp(line, "route stop") == 0) {
+        nav_stop(); Serial.println("Navigation stopped");
+    } else if (strcmp(line, "route") == 0) {
+        if (nav_mode() == NAV_ROUTE) Serial.printf("Route: leg %d/%d -> %s\n", nav_route_leg(), nav_route_total(), nav_target()->name);
+        else if (nav_mode() == NAV_GOTO) Serial.printf("GoTo: %s\n", nav_target()->name);
+        else Serial.println("No active navigation");
+    } else if (strcmp(line, "track start") == 0) {
+        track_set_recording(true);
+        Serial.println("Track recording ON");
+    } else if (strcmp(line, "track stop") == 0) {
+        track_set_recording(false);
+        Serial.printf("Track recording OFF (%d points)\n", track_count());
+    } else if (strcmp(line, "track clear") == 0) {
+        track_clear();
+        Serial.println("Track cleared");
+    } else if (strcmp(line, "track") == 0) {
+        Serial.printf("Track: %s, %d points\n",
+                      track_is_recording() ? "REC" : "stopped", track_count());
     } else if (strcmp(line, "lora") == 0) {
         cmd_lora();
     } else if (strcmp(line, "lora listen") == 0) {

@@ -30,6 +30,8 @@
 #include "duty.h"
 #include "freqoffset.h"
 #include "ble_ota.h"
+#include "gpsview.h"
+#include "waypoints.h"
 
 AppMode currentMode = MODE_MENU;
 
@@ -95,6 +97,7 @@ static void enter_mode(AppMode m) {
         case MODE_NODES:     nodetracker_enter(); break;
         case MODE_STATS:     stats_enter(); lora_start_listen(); break;
         case MODE_AUTOTRACK: autotrack_enter(); break;
+        case MODE_GPS:       lora_stop_listen(); gpsview_enter(); break;
         case MODE_OTA:       lora_stop_listen(); ble_ota_enter(); break;
         case MODE_STANDBY: {
             // Show shutdown screen briefly before entering deep sleep
@@ -146,6 +149,7 @@ void setup() {
 
     Serial.println("Initializing GPS...");
     gps_init();
+    wp_init();
 
     Serial.println("Initializing LoRa...");
     lora_init();
@@ -165,6 +169,21 @@ void loop() {
     lora_update();
     shell_update();
     uint32_t now = millis();
+
+    // Background GPS housekeeping at 1 Hz: track sampling + route leg advance.
+    static uint32_t lastTrackTick = 0;
+    if (now - lastTrackTick >= 1000) {
+        lastTrackTick = now;
+        bool fix = gps_has_fix();
+        float glat = gps_latitude(), glon = gps_longitude();
+        if (track_is_recording()) {
+            int y = 0, mo = 0, d = 0, h = 0, mi = 0, s = 0;
+            gps_datetime(&y, &mo, &d, &h, &mi, &s);
+            track_tick(fix, glat, glon, gps_altitude(),
+                       (uint16_t)y, (uint8_t)mo, (uint8_t)d, (uint8_t)h, (uint8_t)mi, (uint8_t)s);
+        }
+        nav_update(fix, glat, glon, 25.0f); // advance route legs / detect arrival
+    }
     uint32_t idleMs = now - button_last_activity_ms();
     bool wasAsleep = (currentMode == MODE_MENU && idleMs >= 120000);
 
@@ -232,6 +251,8 @@ void loop() {
     if (button_long_pressed()) {
         if (currentMode == MODE_MENU) {
             enter_mode(menu_selection());
+        } else if (currentMode == MODE_GPS && gpsview_long_press()) {
+            // handled inside the GPS view (closed a menu / stepped back a page)
         } else {
             lora_stop_listen();
             enter_mode(MODE_MENU);
@@ -304,6 +325,17 @@ void loop() {
         }
     }
 
+    if (currentMode == MODE_GPS) {
+        if (button_double_pressed()) {
+            gpsview_double_press();
+            return;
+        }
+        if (button_short_pressed()) {
+            gpsview_short_press();
+            return;
+        }
+    }
+
     switch (currentMode) {
         case MODE_STATUS: {
             if (now - lastStatusUpdate >= 1000) {
@@ -329,6 +361,7 @@ void loop() {
         case MODE_NODES:     nodetracker_mode_update();   break;
         case MODE_STATS:     stats_update();              break;
         case MODE_AUTOTRACK: autotrack_update();          break;
+        case MODE_GPS:       gpsview_update();            break;
         case MODE_OTA:       ble_ota_update();            break;
         default: break;
     }

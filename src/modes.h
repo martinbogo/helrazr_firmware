@@ -26,6 +26,7 @@ enum AppMode {
     MODE_AUTOTRACK,
     MODE_STANDBY,
     MODE_OTA,
+    MODE_GPS,    // keep last: menu hides it (without leaving a gap) when no GPS
     MODE_COUNT
 };
 

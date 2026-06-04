@@ -18,7 +18,7 @@
 #define GPS_MODULE_TYPE_M100 2
 
 // Set your active GPS module here:
-#define GPS_MODULE_TYPE GPS_MODULE_TYPE_L76K
+#define GPS_MODULE_TYPE GPS_MODULE_TYPE_M100
 
 // --- Custom GPS pin routing (uncomment and edit for non-default wiring) ---
 // #define USE_CUSTOM_GPS_PINS
@@ -29,9 +29,9 @@
 // #endif // USE_CUSTOM_GPS_PINS
 
 // --- Example: T114 with external M100 u-blox ---
-// #define GPS_MODULE_TYPE GPS_MODULE_TYPE_M100
-// #define USE_CUSTOM_GPS_PINS
-// #define CUSTOM_GPS_RX        8
-// #define CUSTOM_GPS_TX        7
-// #define CUSTOM_GPS_BAUD      115200
+#define GPS_MODULE_TYPE GPS_MODULE_TYPE_M100
+#define USE_CUSTOM_GPS_PINS
+#define CUSTOM_GPS_RX        8
+#define CUSTOM_GPS_TX        7
+#define CUSTOM_GPS_BAUD      115200
 

@@ -28,6 +28,9 @@ extern "C" {
 // LEDs
 #define PIN_LED1 (32 + 3)  // P1.03, green, active low
 #define LED_STATE_ON 0
+// Adafruit nRF52 core libraries (e.g. InternalFileSystem flash cache) expect
+// LED_BUILTIN; the stock variants alias it to the primary LED.
+#define LED_BUILTIN PIN_LED1
 
 // NeoPixels
 #define PIN_NEOPIXEL 14
