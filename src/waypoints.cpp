@@ -36,6 +36,8 @@ static int        s_track_count = 0;
 static bool       s_track_head_wrapped = false; // ring buffer wrapped past start
 static int        s_track_head = 0;             // next write index
 static bool       s_recording = false;
+static float      s_lastTrkLat = 0, s_lastTrkLon = 0; // for distance-gated sampling
+static bool       s_haveLastTrk = false;
 
 // blob layout: [uint8 count][Waypoint * count]
 static size_t blob_build(uint8_t *buf, size_t cap) {
@@ -254,12 +256,17 @@ void track_clear() {
     s_track_count = 0;
     s_track_head = 0;
     s_track_head_wrapped = false;
+    s_haveLastTrk = false;
 }
 
 void track_tick(bool valid, float lat, float lon, float alt,
                 uint16_t year, uint8_t mon, uint8_t day,
                 uint8_t hr, uint8_t min, uint8_t sec) {
     if (!s_recording || !valid) return;
+    // Distance-gate: only log once we've moved far enough from the last point.
+    // Extends the buffer from minutes to kilometres of track.
+    if (s_haveLastTrk && wp_dist(lat, lon, s_lastTrkLat, s_lastTrkLon) < TRACK_MIN_M) return;
+    s_lastTrkLat = lat; s_lastTrkLon = lon; s_haveLastTrk = true;
     TrackPoint &p = s_track[s_track_head];
     p.lat = lat; p.lon = lon; p.alt = alt;
     p.year = year; p.mon = mon; p.day = day;

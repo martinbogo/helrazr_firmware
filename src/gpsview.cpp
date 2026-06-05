@@ -14,6 +14,7 @@
 #include "button.h"
 #include "theme.h"
 #include "prefs.h"
+#include "trip.h"
 #include <math.h>
 #if HAS_TFT
 #include <Fonts/FreeSans9pt7b.h>
@@ -85,6 +86,7 @@ enum GpsPage {
     PAGE_COMPASS,
     PAGE_WAYFINDER,
     PAGE_WAYPOINTS,
+    PAGE_TRIP,
     PAGE_COUNT
 };
 
@@ -200,6 +202,10 @@ void gpsview_double_press() {
         else                    { wp_menu_execute(wpMenuSel); }
         return;
     }
+    if (page == PAGE_TRIP) {
+        trip_reset();
+        return;
+    }
 }
 
 // Long press: close the context menu, else step back to page 1, else (false)
@@ -220,6 +226,7 @@ static const char* page_title() {
         case PAGE_COMPASS:   return "Compass";
         case PAGE_WAYFINDER: return "Wayfinder";
         case PAGE_WAYPOINTS: return "Waypoints";
+        case PAGE_TRIP:      return "Trip";
         default:             return "GPS";
     }
 }
@@ -414,7 +421,7 @@ static void draw_fix() {
 
 #if HAS_OLED
     display_draw_text_small_abs(0, 0, DISPLAY_CYAN, "Fix/Sky");
-    display_draw_text_small_abs(108, 0, DISPLAY_CYAN, "1/4");
+    display_draw_text_small_abs(108, 0, DISPLAY_CYAN, "1/5");
     display_draw_hline(0, 9, 128, DISPLAY_GRAY);
     char r1[20]; snprintf(r1, sizeof(r1), "Fix %s  HDOP %s", fixstr, hdopbuf);
     display_draw_text_small_abs(0, 13, fixcol, r1);
@@ -469,7 +476,7 @@ static void draw_compass() {
 
 #if HAS_OLED
     display_draw_text_small_abs(0, 0, DISPLAY_CYAN, "Compass");
-    display_draw_text_small_abs(108, 0, DISPLAY_CYAN, "2/4");
+    display_draw_text_small_abs(108, 0, DISPLAY_CYAN, "2/5");
     display_draw_hline(0, 9, 128, DISPLAY_GRAY);
     uint16_t needle = moving ? DISPLAY_RED : DISPLAY_GRAY;
     if (compassMode == CM_BUBBLE) {
@@ -541,7 +548,7 @@ static void draw_wayfinder() {
         bool have = wp_count() > 0;
 #if HAS_OLED
         display_draw_text_small_abs(0, 0, DISPLAY_CYAN, "Wayfinder");
-        display_draw_text_small_abs(108, 0, DISPLAY_CYAN, "3/4");
+        display_draw_text_small_abs(108, 0, DISPLAY_CYAN, "3/5");
         display_draw_hline(0, 9, 128, DISPLAY_GRAY);
         display_draw_text_small_abs(0, 22, DISPLAY_WHITE, have ? "No target set." : "No waypoints.");
         display_draw_text_small_abs(0, 34, DISPLAY_WHITE, have ? "Dbl: cycle target" : "Mark some first.");
@@ -582,7 +589,7 @@ static void draw_wayfinder() {
 #if HAS_OLED
     // Bands: title 0-8, divider @9, content 11-53, footer @55.
     display_draw_text_small_abs(0, 0, DISPLAY_CYAN, tgt);
-    display_draw_text_small_abs(108, 0, DISPLAY_CYAN, "3/4");
+    display_draw_text_small_abs(108, 0, DISPLAY_CYAN, "3/5");
     display_draw_hline(0, 9, 128, DISPLAY_GRAY);
     const int cx = 21, cy = 32, r = 12;           // circle y20-44, inside content band
     tft.drawCircle(cx, cy, r, DISPLAY_WHITE);
@@ -637,7 +644,7 @@ static void draw_wp_list() {
 
 #if HAS_OLED
     display_draw_text_small_abs(0, 0, DISPLAY_CYAN, hdr);
-    display_draw_text_small_abs(108, 0, DISPLAY_CYAN, "4/4");
+    display_draw_text_small_abs(108, 0, DISPLAY_CYAN, "4/5");
     display_draw_hline(0, 9, 128, DISPLAY_GRAY);
     if (n == 0) {
         display_draw_text_small_abs(0, 24, DISPLAY_WHITE, "(empty) Dbl opens");
@@ -720,6 +727,38 @@ static void draw_wp_menu() {
 static void draw_waypoints() {
     if (wpState == WP_MENU) draw_wp_menu();
     else                    draw_wp_list();
+}
+
+// =============================================================================
+//  Page 5: Trip computer
+// =============================================================================
+
+static void draw_trip() {
+    char distbuf[16], avgbuf[16], maxbuf[16], timebuf[12];
+    fmt_dist(trip_distance_m(), distbuf, sizeof(distbuf));
+    fmt_speed(trip_avg_kmh(), avgbuf, sizeof(avgbuf));
+    fmt_speed(trip_max_kmh(), maxbuf, sizeof(maxbuf));
+    uint32_t s = trip_moving_s();
+    snprintf(timebuf, sizeof(timebuf), "%02u:%02u:%02u",
+             (unsigned)(s / 3600), (unsigned)((s % 3600) / 60), (unsigned)(s % 60));
+
+#if HAS_OLED
+    display_draw_text_small_abs(0, 0, DISPLAY_CYAN, "Trip");
+    display_draw_text_small_abs(108, 0, DISPLAY_CYAN, "5/5");
+    display_draw_hline(0, 9, 128, DISPLAY_GRAY);
+    char r[24];
+    snprintf(r, sizeof(r), "Dist %s", distbuf); display_draw_text_small_abs(0, 13, DISPLAY_WHITE, r);
+    snprintf(r, sizeof(r), "Time %s", timebuf); display_draw_text_small_abs(0, 23, DISPLAY_WHITE, r);
+    snprintf(r, sizeof(r), "Avg  %s", avgbuf);  display_draw_text_small_abs(0, 33, DISPLAY_WHITE, r);
+    snprintf(r, sizeof(r), "Max  %s", maxbuf);  display_draw_text_small_abs(0, 43, DISPLAY_WHITE, r);
+    display_draw_text_small_abs(0, 55, DISPLAY_CYAN, "S:Pg D:Reset L:Bk");
+#else
+    chrome_tft("Short:Page  Dbl:Reset  Long:Back");
+    Ts(8, 40, DISPLAY_GRAY, "DISTANCE"); T(110, 48, DISPLAY_WHITE, distbuf);
+    Ts(8, 64, DISPLAY_GRAY, "MOVING");   T(110, 72, DISPLAY_WHITE, timebuf);
+    Ts(8, 88, DISPLAY_GRAY, "AVG SPD");  T(110, 96, DISPLAY_WHITE, avgbuf);
+    Ts(8, 112, DISPLAY_GRAY, "MAX SPD"); T(110, 120, DISPLAY_WHITE, maxbuf);
+#endif
 }
 
 // Renders a brief centered status message (used during averaging).
@@ -840,6 +879,7 @@ void gpsview_update() {
         case PAGE_COMPASS:   draw_compass(); break;
         case PAGE_WAYFINDER: draw_wayfinder(); break;
         case PAGE_WAYPOINTS: draw_waypoints(); break;
+        case PAGE_TRIP:      draw_trip(); break;
         default: break;
     }
 

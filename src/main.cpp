@@ -35,6 +35,7 @@
 #include "theme.h"
 #include "settings.h"
 #include "prefs.h"
+#include "trip.h"
 
 AppMode currentMode = MODE_MENU;
 
@@ -189,6 +190,7 @@ void loop() {
                        (uint16_t)y, (uint8_t)mo, (uint8_t)d, (uint8_t)h, (uint8_t)mi, (uint8_t)s);
         }
         nav_update(fix, glat, glon, 25.0f); // advance route legs / detect arrival
+        trip_update(fix, glat, glon, gps_speed_kmh()); // odometer / trip computer
     }
     uint32_t idleMs = now - button_last_activity_ms();
     bool wasAsleep = (currentMode == MODE_MENU && idleMs >= 120000);

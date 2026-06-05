@@ -12,7 +12,8 @@
 
 #define WP_MAX        16   // stored, persisted waypoints
 #define WP_NAME_LEN   12
-#define TRACK_MAX     250  // recorded track points held in RAM
+#define TRACK_MAX     500  // recorded track points held in RAM
+#define TRACK_MIN_M   8.0f // only log a point after moving this many metres
 
 struct Waypoint {
     char    name[WP_NAME_LEN];
