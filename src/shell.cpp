@@ -129,6 +129,13 @@ static bool startsWith(const char* str, const char* prefix) {
     return strncmp(str, prefix, strlen(prefix)) == 0;
 }
 
+// Pointer to the arguments after `cmd` in `line`, skipping spaces ("" if none).
+static const char* args_of(const char* line, const char* cmd) {
+    const char* p = line + strlen(cmd);
+    while (*p == ' ') p++;
+    return p;
+}
+
 // ---- waypoint import (multi-line) -------------------------------------------
 // `wp import` / `wp import gpx` enter a mode where subsequent lines are parsed
 // as waypoints until a line containing just "." (or "end").
@@ -235,32 +242,38 @@ static void process_line(char* line) {
         s_gpxInWpt = false;
         Serial.printf("Paste %s waypoints, then a line with just '.'\r\n",
                       s_importGpx ? "GPX" : "CSV (name,lat,lon)");
-    } else if (startsWith(line, "wp add ")) {
+    } else if (startsWith(line, "wp add")) {
+        const char* a = args_of(line, "wp add");
         float la, lo; char nm[12] = {0};
-        int k = sscanf(line + 7, "%f %f %11s", &la, &lo, nm);
+        int k = sscanf(a, "%f %f %11s", &la, &lo, nm);
         if (k >= 2) { int i = wp_add_named(la, lo, 0.0f, k >= 3 ? nm : nullptr);
             if (i < 0) Serial.println("Store full"); else Serial.printf("Added %s\r\n", wp_get(i)->name); }
         else Serial.println("Usage: wp add <lat> <lon> [name]");
-    } else if (startsWith(line, "wp del ")) {
-        int i = atoi(line + 7);
-        Serial.println(wp_delete(i) ? "Deleted" : "Bad index");
-    } else if (startsWith(line, "wp rename ")) {
+    } else if (startsWith(line, "wp del")) {
+        const char* a = args_of(line, "wp del");
+        if (!*a) Serial.println("Usage: wp del <i>");
+        else Serial.println(wp_delete(atoi(a)) ? "Deleted" : "Bad index");
+    } else if (startsWith(line, "wp rename")) {
+        const char* a = args_of(line, "wp rename");
         int i; char nm[12];
-        if (sscanf(line + 10, "%d %11s", &i, nm) == 2 && wp_rename(i, nm)) Serial.printf("Renamed %d -> %s\r\n", i, nm);
+        if (sscanf(a, "%d %11s", &i, nm) == 2 && wp_rename(i, nm)) Serial.printf("Renamed %d -> %s\r\n", i, nm);
         else Serial.println("Usage: wp rename <i> <name>");
-    } else if (startsWith(line, "wp edit ")) {
-        int i; float la, lo, al = 0;
-        int k = sscanf(line + 8, "%d %f %f %f", &i, &la, &lo, &al);
+    } else if (startsWith(line, "wp edit")) {
+        const char* a = args_of(line, "wp edit");
+        int i = -1; float la, lo, al = 0;
+        int k = sscanf(a, "%d %f %f %f", &i, &la, &lo, &al);
         const Waypoint* w = wp_get(i);
         if (k >= 3 && w && wp_edit(i, la, lo, k >= 4 ? al : w->alt)) Serial.println("Edited");
         else Serial.println("Usage: wp edit <i> <lat> <lon> [alt]");
-    } else if (startsWith(line, "wp move ")) {
-        int a, b;
-        if (sscanf(line + 8, "%d %d", &a, &b) == 2 && wp_move(a, b)) Serial.printf("Moved %d -> %d\r\n", a, b);
+    } else if (startsWith(line, "wp move")) {
+        const char* a = args_of(line, "wp move");
+        int x, y;
+        if (sscanf(a, "%d %d", &x, &y) == 2 && wp_move(x, y)) Serial.printf("Moved %d -> %d\r\n", x, y);
         else Serial.println("Usage: wp move <from> <to>");
-    } else if (startsWith(line, "wp project ")) {
+    } else if (startsWith(line, "wp project")) {
+        const char* a = args_of(line, "wp project");
         int i; float brg, dist; char nm[12] = {0};
-        int k = sscanf(line + 11, "%d %f %f %11s", &i, &brg, &dist, nm);
+        int k = sscanf(a, "%d %f %f %11s", &i, &brg, &dist, nm);
         if (k >= 3) { int j = wp_project(i, brg, dist, k >= 4 ? nm : nullptr);
             if (j < 0) Serial.println("Bad index or full"); else Serial.printf("Projected %s\r\n", wp_get(j)->name); }
         else Serial.println("Usage: wp project <i> <brg> <dist_m> [name]");
@@ -269,12 +282,14 @@ static void process_line(char* line) {
         else Serial.println("No fix");
     } else if (strcmp(line, "wp sort name") == 0) {
         wp_sort_name(); Serial.println("Sorted by name");
-    } else if (startsWith(line, "goto ")) {
-        int i = atoi(line + 5);
-        if (wp_get(i)) { nav_goto(i); Serial.printf("Go To %s\r\n", wp_get(i)->name); }
-        else Serial.println("Bad index");
+    } else if (startsWith(line, "goto")) {
+        const char* a = args_of(line, "goto");
+        if (!*a) Serial.println("Usage: goto <i>");
+        else { int i = atoi(a);
+            if (wp_get(i)) { nav_goto(i); Serial.printf("Go To %s\r\n", wp_get(i)->name); }
+            else Serial.println("Bad index"); }
     } else if (startsWith(line, "route start")) {
-        int from = 0; sscanf(line + 11, "%d", &from);
+        int from = 0; sscanf(args_of(line, "route start"), "%d", &from);
         nav_route_start(from);
         if (nav_mode() == NAV_ROUTE) Serial.printf("Route started, leg %d/%d\r\n", nav_route_leg(), nav_route_total());
         else Serial.println("No waypoints");
