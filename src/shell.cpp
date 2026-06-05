@@ -63,6 +63,7 @@ static void print_help() {
     Serial.println("  wp project <i> <brg> <dist> [name]  Project new wp");
     Serial.println("  wp sort near|name Reorder list");
     Serial.println("  wp clear          Delete all waypoints");
+    Serial.println("  wp import [gpx]    Import waypoints (paste, end with '.')");
     Serial.println("  goto <i>          Navigate to waypoint i");
     Serial.println("  route start [i]   Start route navigation");
     Serial.println("  route stop        Stop navigation");
@@ -128,12 +129,69 @@ static bool startsWith(const char* str, const char* prefix) {
     return strncmp(str, prefix, strlen(prefix)) == 0;
 }
 
+// ---- waypoint import (multi-line) -------------------------------------------
+// `wp import` / `wp import gpx` enter a mode where subsequent lines are parsed
+// as waypoints until a line containing just "." (or "end").
+
+static bool s_importMode = false;
+static bool s_importGpx  = false;
+static float s_gpxLat = 0, s_gpxLon = 0;
+static char  s_gpxName[12];
+static bool  s_gpxInWpt = false;
+
+static void import_csv_line(char* line) {
+    char buf[80]; strncpy(buf, line, sizeof(buf) - 1); buf[sizeof(buf) - 1] = '\0';
+    char* tok[6]; int nt = 0;
+    for (char* p = strtok(buf, ","); p && nt < 6; p = strtok(nullptr, ",")) tok[nt++] = p;
+    if (nt < 3) return;
+    const char* name; float lat, lon;
+    if (strcmp(tok[0], "wpt") == 0 && nt >= 4) { name = tok[1]; lat = atof(tok[2]); lon = atof(tok[3]); }
+    else if (strcmp(tok[0], "type") == 0 || strcmp(tok[0], "trk") == 0) return; // header / track row
+    else { name = tok[0]; lat = atof(tok[1]); lon = atof(tok[2]); }
+    if (lat == 0.0f && lon == 0.0f) return;
+    int i = wp_add_named(lat, lon, 0.0f, name);
+    if (i >= 0) Serial.printf("  + %s\n", wp_get(i)->name);
+    else        Serial.println("  store full");
+}
+
+static void import_gpx_line(char* line) {
+    char* w = strstr(line, "<wpt ");
+    if (w) {
+        char* la = strstr(w, "lat=\""); char* lo = strstr(w, "lon=\"");
+        if (la && lo) { s_gpxLat = atof(la + 5); s_gpxLon = atof(lo + 5); s_gpxName[0] = '\0'; s_gpxInWpt = true; }
+    }
+    char* nm = strstr(line, "<name>");
+    if (nm && s_gpxInWpt) {
+        nm += 6; char* end = strstr(nm, "</name>");
+        int len = end ? (int)(end - nm) : (int)strlen(nm);
+        if (len > (int)sizeof(s_gpxName) - 1) len = sizeof(s_gpxName) - 1;
+        strncpy(s_gpxName, nm, len); s_gpxName[len] = '\0';
+    }
+    if (strstr(line, "</wpt>") && s_gpxInWpt) {
+        int i = wp_add_named(s_gpxLat, s_gpxLon, 0.0f, s_gpxName[0] ? s_gpxName : nullptr);
+        s_gpxInWpt = false;
+        if (i >= 0) Serial.printf("  + %s\n", wp_get(i)->name);
+    }
+}
+
+static void import_line(char* line) {
+    if (strcmp(line, ".") == 0 || strcmp(line, "end") == 0) {
+        s_importMode = false; s_gpxInWpt = false;
+        Serial.printf("Import done. %d waypoint(s) stored.\n", wp_count());
+        return;
+    }
+    if (s_importGpx) import_gpx_line(line);
+    else            import_csv_line(line);
+}
+
 static void process_line(char* line) {
     // trim leading/trailing whitespace
     while (*line == ' ') line++;
     int len = strlen(line);
     while (len > 0 && line[len - 1] == ' ') line[--len] = '\0';
     if (len == 0) return;
+
+    if (s_importMode) { import_line(line); return; } // routed to the importer
 
     if (strcmp(line, "help") == 0 || strcmp(line, "?") == 0) {
         print_help();
@@ -171,6 +229,12 @@ static void process_line(char* line) {
     } else if (strcmp(line, "wp clear") == 0) {
         while (wp_count() > 0) wp_delete(0);
         Serial.println("Waypoints cleared");
+    } else if (strcmp(line, "wp import") == 0 || strcmp(line, "wp import gpx") == 0) {
+        s_importMode = true;
+        s_importGpx = (strstr(line, "gpx") != nullptr);
+        s_gpxInWpt = false;
+        Serial.printf("Paste %s waypoints, then a line with just '.'\n",
+                      s_importGpx ? "GPX" : "CSV (name,lat,lon)");
     } else if (startsWith(line, "wp add ")) {
         float la, lo; char nm[12] = {0};
         int k = sscanf(line + 7, "%f %f %11s", &la, &lo, nm);
