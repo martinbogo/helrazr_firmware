@@ -246,6 +246,33 @@ void loop() {
         }
     }
 
+    // GPS power-saver: when in GPS mode, stationary AND unused for a while, run
+    // the matrix screensaver to prevent burn-in -- without sleeping, so GPS keeps
+    // tracking. Wakes on any button activity or renewed motion.
+    static uint32_t lastMovingMs = 0;
+    if (gps_speed_kmh() >= 2.5f) lastMovingMs = now;
+    static bool gpsSaverActive = false;
+    if (currentMode == MODE_GPS) {
+        const uint32_t SAVER_MS = 60000;
+        bool idle = (now - button_last_activity_ms() > SAVER_MS) &&
+                    (now - lastMovingMs > SAVER_MS);
+        if (gpsSaverActive && !idle) {          // wake (button or motion)
+            gpsSaverActive = false;
+            button_consume();                   // the wake press should not act
+            gpsview_redraw();
+        } else if (!gpsSaverActive && idle) {   // enter
+            gpsSaverActive = true;
+            menu_reset_matrix();
+        }
+        if (gpsSaverActive) {
+            static uint32_t lastM = 0;
+            if (now - lastM > 50) { lastM = now; menu_draw_matrix(); }
+            return; // skip page rendering and button actions while saving
+        }
+    } else {
+        gpsSaverActive = false;
+    }
+
     if (lora_poll_packet()) {
         uint8_t buf[256]; int len = 0;
         lora_get_last_packet(buf, &len);

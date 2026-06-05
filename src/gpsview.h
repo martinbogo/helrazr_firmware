@@ -22,3 +22,6 @@ void gpsview_double_press();
 // Long-press handler. Returns true if consumed internally (closed the context
 // menu, or stepped back to the first page); false means "exit to main menu".
 bool gpsview_long_press();
+
+// Force a full repaint on the next update (e.g. after the screensaver clears it).
+void gpsview_redraw();

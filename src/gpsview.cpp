@@ -218,6 +218,8 @@ bool gpsview_long_press() {
     return false;
 }
 
+void gpsview_redraw() { needClear = true; lastDraw = 0; }
+
 // ---- shared helpers ---------------------------------------------------------
 
 static const char* page_title() {
