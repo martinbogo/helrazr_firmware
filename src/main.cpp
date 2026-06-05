@@ -168,7 +168,7 @@ void setup() {
 
     enter_mode(MODE_MENU);
     Serial.println("Ready. Short=next Long=select/back");
-    Serial.print("> ");
+    Serial.print(SHELL_PROMPT);
 }
 
 void loop() {

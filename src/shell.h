@@ -10,5 +10,7 @@
 #pragma once
 #include <Arduino.h>
 
+#define SHELL_PROMPT "helrazr> "
+
 void shell_init();
 void shell_update();

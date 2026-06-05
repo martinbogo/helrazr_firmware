@@ -377,26 +377,31 @@ void shell_init() {
     Serial.println();
     Serial.println("=== HelRazr Firmware ===");
     Serial.println("Type 'help' for commands");
-    Serial.print("> ");
+    Serial.print(SHELL_PROMPT);
 }
 
 void shell_update() {
+    static bool lastCR = false; // to swallow the LF of a CR+LF newline
     while (Serial.available()) {
         char c = Serial.read();
         if (c == '\r' || c == '\n') {
+            if (c == '\n' && lastCR) { lastCR = false; continue; } // CRLF -> one Enter
+            lastCR = (c == '\r');
+            Serial.println();
             if (linepos > 0) {
-                Serial.println();
                 linebuf[linepos] = '\0';
                 process_line(linebuf);
                 linepos = 0;
-                Serial.print("> ");
             }
+            Serial.print(SHELL_PROMPT); // always re-prompt, even on a blank line
         } else if (c == '\b' || c == 127) {  // backspace/delete
+            lastCR = false;
             if (linepos > 0) {
                 linepos--;
                 Serial.print("\b \b");
             }
         } else if (linepos < (int)sizeof(linebuf) - 1) {
+            lastCR = false;
             linebuf[linepos++] = c;
             Serial.print(c);  // echo
         }
