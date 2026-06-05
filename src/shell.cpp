@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2026 Martin Bogomolni <martinbogo@gmail.com>
  *
- * This code is licensed under the Creative Commons 
+ * This code is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivatives 4.0 International License (CC BY-NC-ND 4.0).
  * To view a copy of this license, visit:
  * http://creativecommons.org/licenses/by-nc-nd/4.0/
@@ -40,47 +40,6 @@ static float read_battery() {
     digitalWrite(PIN_BAT_ADC_EN, LOW);
 #endif
     return voltage;
-}
-
-static void print_help() {
-    Serial.println("Commands:");
-    Serial.println("  help              Show this help");
-    Serial.println("  status            Show all status");
-    Serial.println("  gps               GPS info");
-    Serial.println("  gps raw           Dump raw GPS bytes (5s)");
-    Serial.println("  gps init          Re-init M100 with debug");
-    Serial.println("  gps monitor       Live GPS data (30s)");
-    Serial.println("  gps test          Pin/baud diagnostic");
-    Serial.println("  gps export        Dump waypoints+track as GPX");
-    Serial.println("  gps export csv    Dump waypoints+track as CSV");
-    Serial.println("  wp list           List stored waypoints");
-    Serial.println("  wp mark           Mark current position");
-    Serial.println("  wp add <la> <lo> [name]  Add by coordinates");
-    Serial.println("  wp del <i>        Delete waypoint i");
-    Serial.println("  wp rename <i> <name>     Rename waypoint i");
-    Serial.println("  wp edit <i> <la> <lo> [alt]  Edit coords");
-    Serial.println("  wp move <from> <to>      Reorder waypoint");
-    Serial.println("  wp project <i> <brg> <dist> [name]  Project new wp");
-    Serial.println("  wp sort near|name Reorder list");
-    Serial.println("  wp clear          Delete all waypoints");
-    Serial.println("  wp import [gpx]    Import waypoints (paste, end with '.')");
-    Serial.println("  goto <i>          Navigate to waypoint i");
-    Serial.println("  route start [i]   Start route navigation");
-    Serial.println("  route stop        Stop navigation");
-    Serial.println("  track start|stop  Toggle track recording");
-    Serial.println("  track clear       Erase recorded track");
-    Serial.println("  lora              LoRa info");
-    Serial.println("  lora listen       Start receiving");
-    Serial.println("  lora stop         Stop receiving");
-    Serial.println("  lora freq <MHz>   Set frequency");
-    Serial.println("  lora bw <kHz>     Set bandwidth");
-    Serial.println("  lora sf <7-12>    Set spreading factor");
-    Serial.println("  theme [name|next] Set/cycle color theme");
-    Serial.println("  display on        Turn display on");
-    Serial.println("  display off       Turn display off");
-    Serial.println("  led on|off        Toggle LED");
-    Serial.println("  bat               Battery voltage");
-    Serial.println("  reboot            Software reset");
 }
 
 static void cmd_status() {
@@ -123,70 +82,6 @@ static void cmd_lora() {
     Serial.print("RSSI: "); Serial.print(lora_last_rssi(), 1); Serial.println(" dBm");
     Serial.print("SNR:  "); Serial.print(lora_last_snr(), 1); Serial.println(" dB");
     Serial.print("Pkts: "); Serial.println(lora_packet_count());
-}
-
-static bool startsWith(const char* str, const char* prefix) {
-    return strncmp(str, prefix, strlen(prefix)) == 0;
-}
-
-// Pointer to the arguments after `cmd` in `line`, skipping spaces ("" if none).
-static const char* args_of(const char* line, const char* cmd) {
-    const char* p = line + strlen(cmd);
-    while (*p == ' ') p++;
-    return p;
-}
-
-// Canonical command list -- drives Tab completion and "did you mean" hints.
-static const char* COMMANDS[] = {
-    "help", "status",
-    "gps", "gps raw", "gps init", "gps monitor", "gps test",
-    "gps export", "gps export csv",
-    "wp list", "wp mark", "wp add", "wp del", "wp rename", "wp edit",
-    "wp move", "wp project", "wp sort near", "wp sort name", "wp clear", "wp import",
-    "goto", "route start", "route stop", "route",
-    "track start", "track stop", "track clear", "track",
-    "lora", "lora listen", "lora stop", "lora freq", "lora bw", "lora sf",
-    "theme", "display on", "display off", "led on", "led off", "bat", "reboot",
-};
-static const int CMD_COUNT = sizeof(COMMANDS) / sizeof(COMMANDS[0]);
-
-// Collects commands that start with the current input. Returns the count.
-static int cmd_matches(const char* prefix, int len, const char** out, int cap) {
-    int n = 0;
-    for (int i = 0; i < CMD_COUNT && n < cap; i++)
-        if (strncmp(COMMANDS[i], prefix, len) == 0) out[n++] = COMMANDS[i];
-    return n;
-}
-
-// Tab completion: extend to the longest common prefix of matches; complete +
-// add a space if unique; list candidates if it can't extend further.
-static void shell_complete() {
-    const char* m[CMD_COUNT];
-    int n = cmd_matches(linebuf, linepos, m, CMD_COUNT);
-    if (n == 0) return;
-    int lcp = strlen(m[0]);
-    for (int i = 1; i < n; i++) {
-        int j = 0;
-        while (j < lcp && m[i][j] == m[0][j]) j++;
-        lcp = j;
-    }
-    if (lcp > linepos) {                                  // extend toward the match
-        while (linepos < lcp && linepos < (int)sizeof(linebuf) - 1) {
-            char c = m[0][linepos];
-            linebuf[linepos++] = c;
-            Serial.print(c);
-        }
-        if (n == 1 && linepos < (int)sizeof(linebuf) - 1) { // unique -> trailing space
-            linebuf[linepos++] = ' ';
-            Serial.print(' ');
-        }
-    } else {                                              // ambiguous -> list options
-        Serial.println();
-        for (int i = 0; i < n; i++) { Serial.print("  "); Serial.println(m[i]); }
-        Serial.print(SHELL_PROMPT);
-        linebuf[linepos] = '\0';
-        Serial.print(linebuf);
-    }
 }
 
 // ---- waypoint import (multi-line) -------------------------------------------
@@ -244,6 +139,263 @@ static void import_line(char* line) {
     else            import_csv_line(line);
 }
 
+// ---- command table -----------------------------------------------------------
+// One table drives dispatch, help, usage, and Tab completion. To add a command:
+// write a handler, then add one row below. `args` is the syntax for help/usage.
+
+struct ShellCmd;
+typedef void (*ShellFn)(const ShellCmd* c, const char* args);
+struct ShellCmd { const char* name; const char* args; const char* help; ShellFn fn; };
+
+static void shell_usage(const ShellCmd* c) {
+    Serial.print("Usage: "); Serial.print(c->name);
+    if (c->args && c->args[0]) { Serial.print(' '); Serial.print(c->args); }
+    Serial.println();
+}
+static void print_help_table(); // defined after the table
+
+// ---- handlers ---------------------------------------------------------------
+
+static void h_help(const ShellCmd*, const char*)        { print_help_table(); }
+static void h_status(const ShellCmd*, const char*)      { cmd_status(); }
+static void h_gps(const ShellCmd*, const char*)         { cmd_gps(); }
+static void h_gps_raw(const ShellCmd*, const char*)     { gps_cmd_raw(); }
+static void h_gps_init(const ShellCmd*, const char*)    { gps_cmd_init(); }
+static void h_gps_monitor(const ShellCmd*, const char*) { gps_cmd_monitor(); }
+static void h_gps_test(const ShellCmd*, const char*)    { gps_diagnostic_test(); }
+static void h_gps_export(const ShellCmd*, const char*)  { gps_export_gpx(Serial); }
+static void h_gps_export_csv(const ShellCmd*, const char*) { gps_export_csv(Serial); }
+
+static void h_wp_list(const ShellCmd*, const char*) {
+    Serial.printf("%d waypoint(s):\r\n", wp_count());
+    for (int i = 0; i < wp_count(); i++) {
+        const Waypoint* w = wp_get(i);
+        Serial.printf("  %d %-8s %.6f, %.6f  %.1fm  RSSI %d SNR %d\r\n",
+                      i, w->name, w->lat, w->lon, w->alt, w->rssi, w->snr);
+    }
+}
+static void h_wp_mark(const ShellCmd*, const char*) {
+    if (!gps_has_fix()) { Serial.println("No fix; cannot mark"); return; }
+    int idx = wp_add(gps_latitude(), gps_longitude(), gps_altitude());
+    if (idx < 0) Serial.println("Waypoint store full");
+    else Serial.printf("Marked %s\r\n", wp_get(idx)->name);
+}
+static void h_wp_add(const ShellCmd* c, const char* a) {
+    float la, lo; char nm[12] = {0};
+    int k = sscanf(a, "%f %f %11s", &la, &lo, nm);
+    if (k < 2) { shell_usage(c); return; }
+    int i = wp_add_named(la, lo, 0.0f, k >= 3 ? nm : nullptr);
+    if (i < 0) Serial.println("Store full"); else Serial.printf("Added %s\r\n", wp_get(i)->name);
+}
+static void h_wp_del(const ShellCmd* c, const char* a) {
+    if (!*a) { shell_usage(c); return; }
+    Serial.println(wp_delete(atoi(a)) ? "Deleted" : "Bad index");
+}
+static void h_wp_rename(const ShellCmd* c, const char* a) {
+    int i; char nm[12];
+    if (sscanf(a, "%d %11s", &i, nm) == 2 && wp_rename(i, nm)) Serial.printf("Renamed %d -> %s\r\n", i, nm);
+    else shell_usage(c);
+}
+static void h_wp_edit(const ShellCmd* c, const char* a) {
+    int i = -1; float la, lo, al = 0;
+    int k = sscanf(a, "%d %f %f %f", &i, &la, &lo, &al);
+    const Waypoint* w = wp_get(i);
+    if (k >= 3 && w && wp_edit(i, la, lo, k >= 4 ? al : w->alt)) Serial.println("Edited");
+    else shell_usage(c);
+}
+static void h_wp_move(const ShellCmd* c, const char* a) {
+    int x, y;
+    if (sscanf(a, "%d %d", &x, &y) == 2 && wp_move(x, y)) Serial.printf("Moved %d -> %d\r\n", x, y);
+    else shell_usage(c);
+}
+static void h_wp_project(const ShellCmd* c, const char* a) {
+    int i; float brg, dist; char nm[12] = {0};
+    int k = sscanf(a, "%d %f %f %11s", &i, &brg, &dist, nm);
+    if (k < 3) { shell_usage(c); return; }
+    int j = wp_project(i, brg, dist, k >= 4 ? nm : nullptr);
+    if (j < 0) Serial.println("Bad index or full"); else Serial.printf("Projected %s\r\n", wp_get(j)->name);
+}
+static void h_wp_sort_near(const ShellCmd*, const char*) {
+    if (gps_has_fix()) { wp_sort_nearest(gps_latitude(), gps_longitude()); Serial.println("Sorted by distance"); }
+    else Serial.println("No fix");
+}
+static void h_wp_sort_name(const ShellCmd*, const char*) { wp_sort_name(); Serial.println("Sorted by name"); }
+static void h_wp_clear(const ShellCmd*, const char*) {
+    while (wp_count() > 0) wp_delete(0);
+    Serial.println("Waypoints cleared");
+}
+static void h_wp_import(const ShellCmd*, const char* a) {
+    s_importMode = true;
+    s_importGpx = (strstr(a, "gpx") != nullptr);
+    s_gpxInWpt = false;
+    Serial.printf("Paste %s waypoints, then a line with just '.'\r\n",
+                  s_importGpx ? "GPX" : "CSV (name,lat,lon)");
+}
+static void h_goto(const ShellCmd* c, const char* a) {
+    if (!*a) { shell_usage(c); return; }
+    int i = atoi(a);
+    if (wp_get(i)) { nav_goto(i); Serial.printf("Go To %s\r\n", wp_get(i)->name); }
+    else Serial.println("Bad index");
+}
+static void h_route_start(const ShellCmd*, const char* a) {
+    int from = 0; sscanf(a, "%d", &from);
+    nav_route_start(from);
+    if (nav_mode() == NAV_ROUTE) Serial.printf("Route started, leg %d/%d\r\n", nav_route_leg(), nav_route_total());
+    else Serial.println("No waypoints");
+}
+static void h_route_stop(const ShellCmd*, const char*) { nav_stop(); Serial.println("Navigation stopped"); }
+static void h_route(const ShellCmd*, const char*) {
+    if (nav_mode() == NAV_ROUTE) Serial.printf("Route: leg %d/%d -> %s\r\n", nav_route_leg(), nav_route_total(), nav_target()->name);
+    else if (nav_mode() == NAV_GOTO) Serial.printf("GoTo: %s\r\n", nav_target()->name);
+    else Serial.println("No active navigation");
+}
+static void h_track_start(const ShellCmd*, const char*) { track_set_recording(true);  Serial.println("Track recording ON"); }
+static void h_track_stop(const ShellCmd*, const char*)  { track_set_recording(false); Serial.printf("Track recording OFF (%d points)\r\n", track_count()); }
+static void h_track_clear(const ShellCmd*, const char*) { track_clear(); Serial.println("Track cleared"); }
+static void h_track(const ShellCmd*, const char*) {
+    Serial.printf("Track: %s, %d points\r\n", track_is_recording() ? "REC" : "stopped", track_count());
+}
+static void h_lora(const ShellCmd*, const char*) { cmd_lora(); }
+static void h_lora_listen(const ShellCmd*, const char*) {
+    if (lora_start_listen()) Serial.println("LoRa: listening"); else Serial.println("LoRa: failed to start");
+}
+static void h_lora_stop(const ShellCmd*, const char*) { lora_stop_listen(); Serial.println("LoRa: stopped"); }
+static void h_lora_freq(const ShellCmd* c, const char* a) {
+    if (!*a) { shell_usage(c); return; }
+    float f = atof(a);
+    if (lora_set_frequency(f)) { Serial.print("LoRa freq: "); Serial.print(f, 1); Serial.println(" MHz"); }
+    else Serial.println("Failed to set frequency");
+}
+static void h_lora_bw(const ShellCmd* c, const char* a) {
+    if (!*a) { shell_usage(c); return; }
+    float bw = atof(a);
+    if (lora_set_bandwidth(bw)) { Serial.print("LoRa BW: "); Serial.print(bw, 0); Serial.println(" kHz"); }
+    else Serial.println("Failed to set bandwidth");
+}
+static void h_lora_sf(const ShellCmd* c, const char* a) {
+    if (!*a) { shell_usage(c); return; }
+    int sf = atoi(a);
+    if (lora_set_spreading_factor(sf)) { Serial.print("LoRa SF: "); Serial.println(sf); }
+    else Serial.println("SF must be 5-12");
+}
+static void h_theme(const ShellCmd*, const char* a) {
+    if (strcmp(a, "next") == 0) theme_next();
+    else if (*a) { for (int i = 0; i < theme_count(); i++) if (strcasecmp(a, theme_name(i)) == 0) { theme_set(i); break; } }
+    Serial.printf("Theme: %s  [", theme_name(theme_current()));
+    for (int i = 0; i < theme_count(); i++) Serial.printf("%s%s", i ? " " : "", theme_name(i));
+    Serial.println("]");
+    if (currentMode == MODE_MENU) { menu_init(); menu_draw(); } // re-skin now
+}
+static void h_display_on(const ShellCmd*, const char*)  { display_on();  Serial.println("Display on"); }
+static void h_display_off(const ShellCmd*, const char*) { display_off(); Serial.println("Display off"); }
+static void h_led_on(const ShellCmd*, const char*)  { digitalWrite(PIN_LED, LED_STATE_ON);  Serial.println("LED on"); }
+static void h_led_off(const ShellCmd*, const char*) { digitalWrite(PIN_LED, LED_STATE_OFF); Serial.println("LED off"); }
+static void h_bat(const ShellCmd*, const char*) { Serial.print("Battery: "); Serial.print(read_battery(), 2); Serial.println(" V"); }
+static void h_reboot(const ShellCmd*, const char*) {
+    Serial.println("Rebooting...");
+    delay(100);
+#if defined(HELTEC_T114)
+    NVIC_SystemReset();
+#elif defined(HELTEC_V3) || defined(HELTEC_V4)
+    ESP.restart();
+#endif
+}
+
+static const ShellCmd CMDS[] = {
+    { "help",           "",                       "Show this help",           h_help },
+    { "status",         "",                       "Show all status",          h_status },
+    { "gps",            "",                       "GPS info",                 h_gps },
+    { "gps raw",        "",                       "Dump raw GPS bytes (5s)",  h_gps_raw },
+    { "gps init",       "",                       "Re-init M100 with debug",  h_gps_init },
+    { "gps monitor",    "",                       "Live GPS data (30s)",      h_gps_monitor },
+    { "gps test",       "",                       "Pin/baud diagnostic",      h_gps_test },
+    { "gps export",     "",                       "Waypoints+track as GPX",   h_gps_export },
+    { "gps export csv", "",                       "Waypoints+track as CSV",   h_gps_export_csv },
+    { "wp list",        "",                       "List stored waypoints",    h_wp_list },
+    { "wp mark",        "",                       "Mark current position",    h_wp_mark },
+    { "wp add",         "<lat> <lon> [name]",     "Add by coordinates",       h_wp_add },
+    { "wp del",         "<i>",                    "Delete waypoint i",        h_wp_del },
+    { "wp rename",      "<i> <name>",             "Rename waypoint i",        h_wp_rename },
+    { "wp edit",        "<i> <lat> <lon> [alt]",  "Edit coordinates",         h_wp_edit },
+    { "wp move",        "<from> <to>",            "Reorder waypoint",         h_wp_move },
+    { "wp project",     "<i> <brg> <dist> [name]","Project a new waypoint",   h_wp_project },
+    { "wp sort near",   "",                       "Sort by distance",         h_wp_sort_near },
+    { "wp sort name",   "",                       "Sort by name",             h_wp_sort_name },
+    { "wp clear",       "",                       "Delete all waypoints",     h_wp_clear },
+    { "wp import",      "[gpx]",                  "Import (paste, end '.')",  h_wp_import },
+    { "goto",           "<i>",                    "Navigate to waypoint i",   h_goto },
+    { "route start",    "[i]",                    "Start route navigation",   h_route_start },
+    { "route stop",     "",                       "Stop navigation",          h_route_stop },
+    { "route",          "",                       "Navigation status",        h_route },
+    { "track start",    "",                       "Start track recording",    h_track_start },
+    { "track stop",     "",                       "Stop track recording",     h_track_stop },
+    { "track clear",    "",                       "Erase recorded track",     h_track_clear },
+    { "track",          "",                       "Track status",             h_track },
+    { "lora",           "",                       "LoRa info",                h_lora },
+    { "lora listen",    "",                       "Start receiving",          h_lora_listen },
+    { "lora stop",      "",                       "Stop receiving",           h_lora_stop },
+    { "lora freq",      "<MHz>",                  "Set frequency",            h_lora_freq },
+    { "lora bw",        "<kHz>",                  "Set bandwidth",            h_lora_bw },
+    { "lora sf",        "<7-12>",                 "Set spreading factor",     h_lora_sf },
+    { "theme",          "[name|next]",            "Set/cycle color theme",    h_theme },
+    { "display on",     "",                       "Turn display on",          h_display_on },
+    { "display off",    "",                       "Turn display off",         h_display_off },
+    { "led on",         "",                       "LED on",                   h_led_on },
+    { "led off",        "",                       "LED off",                  h_led_off },
+    { "bat",            "",                       "Battery voltage",          h_bat },
+    { "reboot",         "",                       "Software reset",           h_reboot },
+};
+static const int CMD_COUNT = sizeof(CMDS) / sizeof(CMDS[0]);
+
+static void print_help_table() {
+    Serial.println("Commands:");
+    char left[44];
+    for (int i = 0; i < CMD_COUNT; i++) {
+        if (CMDS[i].args[0]) snprintf(left, sizeof(left), "%s %s", CMDS[i].name, CMDS[i].args);
+        else                 snprintf(left, sizeof(left), "%s", CMDS[i].name);
+        Serial.printf("  %-30s %s\r\n", left, CMDS[i].help);
+    }
+}
+
+// Commands whose name starts with the typed prefix (for Tab/suggestions).
+static int cmd_matches(const char* prefix, int len, const ShellCmd** out, int cap) {
+    int n = 0;
+    for (int i = 0; i < CMD_COUNT && n < cap; i++)
+        if (strncmp(CMDS[i].name, prefix, len) == 0) out[n++] = &CMDS[i];
+    return n;
+}
+
+// Tab completion: extend to the longest common prefix of matches; complete +
+// add a space if unique; list candidates if it can't extend further.
+static void shell_complete() {
+    const ShellCmd* m[CMD_COUNT];
+    int n = cmd_matches(linebuf, linepos, m, CMD_COUNT);
+    if (n == 0) return;
+    int lcp = strlen(m[0]->name);
+    for (int i = 1; i < n; i++) {
+        int j = 0;
+        while (j < lcp && m[i]->name[j] == m[0]->name[j]) j++;
+        lcp = j;
+    }
+    if (lcp > linepos) {                                  // extend toward the match
+        while (linepos < lcp && linepos < (int)sizeof(linebuf) - 1) {
+            char c = m[0]->name[linepos];
+            linebuf[linepos++] = c;
+            Serial.print(c);
+        }
+        if (n == 1 && linepos < (int)sizeof(linebuf) - 1) { // unique -> trailing space
+            linebuf[linepos++] = ' ';
+            Serial.print(' ');
+        }
+    } else {                                              // ambiguous -> list options
+        Serial.println();
+        for (int i = 0; i < n; i++) { Serial.print("  "); Serial.println(m[i]->name); }
+        Serial.print(SHELL_PROMPT);
+        linebuf[linepos] = '\0';
+        Serial.print(linebuf);
+    }
+}
+
 static void process_line(char* line) {
     // trim leading/trailing whitespace
     while (*line == ' ') line++;
@@ -252,195 +404,33 @@ static void process_line(char* line) {
     if (len == 0) return;
 
     if (s_importMode) { import_line(line); return; } // routed to the importer
+    if (strcmp(line, "?") == 0) { print_help_table(); return; }
 
-    if (strcmp(line, "help") == 0 || strcmp(line, "?") == 0) {
-        print_help();
-    } else if (strcmp(line, "status") == 0) {
-        cmd_status();
-    } else if (strcmp(line, "gps") == 0) {
-        cmd_gps();
-    } else if (strcmp(line, "gps test") == 0) {
-        gps_diagnostic_test();
-    } else if (strcmp(line, "gps raw") == 0) {
-        gps_cmd_raw();
-    } else if (strcmp(line, "gps init") == 0) {
-        gps_cmd_init();
-    } else if (strcmp(line, "gps monitor") == 0) {
-        gps_cmd_monitor();
-    } else if (strcmp(line, "gps export") == 0) {
-        gps_export_gpx(Serial);
-    } else if (strcmp(line, "gps export csv") == 0) {
-        gps_export_csv(Serial);
-    } else if (strcmp(line, "wp list") == 0) {
-        Serial.printf("%d waypoint(s):\r\n", wp_count());
-        for (int i = 0; i < wp_count(); i++) {
-            const Waypoint* w = wp_get(i);
-            Serial.printf("  %d %-8s %.6f, %.6f  %.1fm  RSSI %d SNR %d\r\n",
-                          i, w->name, w->lat, w->lon, w->alt, w->rssi, w->snr);
+    // Longest-prefix match so "lora freq" wins over "lora", etc.
+    const ShellCmd* best = nullptr; int bestLen = 0;
+    for (int i = 0; i < CMD_COUNT; i++) {
+        int n = strlen(CMDS[i].name);
+        if (strncmp(line, CMDS[i].name, n) == 0 && (line[n] == '\0' || line[n] == ' ') && n > bestLen) {
+            best = &CMDS[i]; bestLen = n;
         }
-    } else if (strcmp(line, "wp mark") == 0) {
-        if (!gps_has_fix()) {
-            Serial.println("No fix; cannot mark");
-        } else {
-            int idx = wp_add(gps_latitude(), gps_longitude(), gps_altitude());
-            if (idx < 0) Serial.println("Waypoint store full");
-            else Serial.printf("Marked %s\r\n", wp_get(idx)->name);
-        }
-    } else if (strcmp(line, "wp clear") == 0) {
-        while (wp_count() > 0) wp_delete(0);
-        Serial.println("Waypoints cleared");
-    } else if (strcmp(line, "wp import") == 0 || strcmp(line, "wp import gpx") == 0) {
-        s_importMode = true;
-        s_importGpx = (strstr(line, "gpx") != nullptr);
-        s_gpxInWpt = false;
-        Serial.printf("Paste %s waypoints, then a line with just '.'\r\n",
-                      s_importGpx ? "GPX" : "CSV (name,lat,lon)");
-    } else if (startsWith(line, "wp add")) {
-        const char* a = args_of(line, "wp add");
-        float la, lo; char nm[12] = {0};
-        int k = sscanf(a, "%f %f %11s", &la, &lo, nm);
-        if (k >= 2) { int i = wp_add_named(la, lo, 0.0f, k >= 3 ? nm : nullptr);
-            if (i < 0) Serial.println("Store full"); else Serial.printf("Added %s\r\n", wp_get(i)->name); }
-        else Serial.println("Usage: wp add <lat> <lon> [name]");
-    } else if (startsWith(line, "wp del")) {
-        const char* a = args_of(line, "wp del");
-        if (!*a) Serial.println("Usage: wp del <i>");
-        else Serial.println(wp_delete(atoi(a)) ? "Deleted" : "Bad index");
-    } else if (startsWith(line, "wp rename")) {
-        const char* a = args_of(line, "wp rename");
-        int i; char nm[12];
-        if (sscanf(a, "%d %11s", &i, nm) == 2 && wp_rename(i, nm)) Serial.printf("Renamed %d -> %s\r\n", i, nm);
-        else Serial.println("Usage: wp rename <i> <name>");
-    } else if (startsWith(line, "wp edit")) {
-        const char* a = args_of(line, "wp edit");
-        int i = -1; float la, lo, al = 0;
-        int k = sscanf(a, "%d %f %f %f", &i, &la, &lo, &al);
-        const Waypoint* w = wp_get(i);
-        if (k >= 3 && w && wp_edit(i, la, lo, k >= 4 ? al : w->alt)) Serial.println("Edited");
-        else Serial.println("Usage: wp edit <i> <lat> <lon> [alt]");
-    } else if (startsWith(line, "wp move")) {
-        const char* a = args_of(line, "wp move");
-        int x, y;
-        if (sscanf(a, "%d %d", &x, &y) == 2 && wp_move(x, y)) Serial.printf("Moved %d -> %d\r\n", x, y);
-        else Serial.println("Usage: wp move <from> <to>");
-    } else if (startsWith(line, "wp project")) {
-        const char* a = args_of(line, "wp project");
-        int i; float brg, dist; char nm[12] = {0};
-        int k = sscanf(a, "%d %f %f %11s", &i, &brg, &dist, nm);
-        if (k >= 3) { int j = wp_project(i, brg, dist, k >= 4 ? nm : nullptr);
-            if (j < 0) Serial.println("Bad index or full"); else Serial.printf("Projected %s\r\n", wp_get(j)->name); }
-        else Serial.println("Usage: wp project <i> <brg> <dist_m> [name]");
-    } else if (strcmp(line, "wp sort near") == 0) {
-        if (gps_has_fix()) { wp_sort_nearest(gps_latitude(), gps_longitude()); Serial.println("Sorted by distance"); }
-        else Serial.println("No fix");
-    } else if (strcmp(line, "wp sort name") == 0) {
-        wp_sort_name(); Serial.println("Sorted by name");
-    } else if (startsWith(line, "goto")) {
-        const char* a = args_of(line, "goto");
-        if (!*a) Serial.println("Usage: goto <i>");
-        else { int i = atoi(a);
-            if (wp_get(i)) { nav_goto(i); Serial.printf("Go To %s\r\n", wp_get(i)->name); }
-            else Serial.println("Bad index"); }
-    } else if (startsWith(line, "route start")) {
-        int from = 0; sscanf(args_of(line, "route start"), "%d", &from);
-        nav_route_start(from);
-        if (nav_mode() == NAV_ROUTE) Serial.printf("Route started, leg %d/%d\r\n", nav_route_leg(), nav_route_total());
-        else Serial.println("No waypoints");
-    } else if (strcmp(line, "route stop") == 0) {
-        nav_stop(); Serial.println("Navigation stopped");
-    } else if (strcmp(line, "route") == 0) {
-        if (nav_mode() == NAV_ROUTE) Serial.printf("Route: leg %d/%d -> %s\r\n", nav_route_leg(), nav_route_total(), nav_target()->name);
-        else if (nav_mode() == NAV_GOTO) Serial.printf("GoTo: %s\r\n", nav_target()->name);
-        else Serial.println("No active navigation");
-    } else if (strcmp(line, "track start") == 0) {
-        track_set_recording(true);
-        Serial.println("Track recording ON");
-    } else if (strcmp(line, "track stop") == 0) {
-        track_set_recording(false);
-        Serial.printf("Track recording OFF (%d points)\r\n", track_count());
-    } else if (strcmp(line, "track clear") == 0) {
-        track_clear();
-        Serial.println("Track cleared");
-    } else if (strcmp(line, "track") == 0) {
-        Serial.printf("Track: %s, %d points\r\n",
-                      track_is_recording() ? "REC" : "stopped", track_count());
-    } else if (strcmp(line, "lora") == 0) {
-        cmd_lora();
-    } else if (strcmp(line, "lora listen") == 0) {
-        if (lora_start_listen()) Serial.println("LoRa: listening");
-        else Serial.println("LoRa: failed to start");
-    } else if (strcmp(line, "lora stop") == 0) {
-        lora_stop_listen();
-        Serial.println("LoRa: stopped");
-    } else if (startsWith(line, "lora freq ")) {
-        float f = atof(line + 10);
-        if (lora_set_frequency(f)) {
-            Serial.print("LoRa freq: "); Serial.print(f, 1); Serial.println(" MHz");
-        } else {
-            Serial.println("Failed to set frequency");
-        }
-    } else if (startsWith(line, "lora bw ")) {
-        float bw = atof(line + 8);
-        if (lora_set_bandwidth(bw)) {
-            Serial.print("LoRa BW: "); Serial.print(bw, 0); Serial.println(" kHz");
-        } else {
-            Serial.println("Failed to set bandwidth");
-        }
-    } else if (startsWith(line, "lora sf ")) {
-        int sf = atoi(line + 8);
-        if (lora_set_spreading_factor(sf)) {
-            Serial.print("LoRa SF: "); Serial.println(sf);
-        } else {
-            Serial.println("SF must be 5-12");
-        }
-    } else if (startsWith(line, "theme")) {
-        const char *arg = line + 5;
-        while (*arg == ' ') arg++;
-        if (strcmp(arg, "next") == 0) {
-            theme_next();
-        } else if (*arg) {
-            for (int i = 0; i < theme_count(); i++)
-                if (strcasecmp(arg, theme_name(i)) == 0) { theme_set(i); break; }
-        }
-        Serial.printf("Theme: %s  [", theme_name(theme_current()));
-        for (int i = 0; i < theme_count(); i++) Serial.printf("%s%s", i ? " " : "", theme_name(i));
-        Serial.println("]");
-        if (currentMode == MODE_MENU) { menu_init(); menu_draw(); } // re-skin now
-    } else if (strcmp(line, "display on") == 0) {
-        display_on();
-        Serial.println("Display on");
-    } else if (strcmp(line, "display off") == 0) {
-        display_off();
-        Serial.println("Display off");
-    } else if (strcmp(line, "led on") == 0) {
-        digitalWrite(PIN_LED, LED_STATE_ON);
-        Serial.println("LED on");
-    } else if (strcmp(line, "led off") == 0) {
-        digitalWrite(PIN_LED, LED_STATE_OFF);
-        Serial.println("LED off");
-    } else if (strcmp(line, "bat") == 0) {
-        Serial.print("Battery: "); Serial.print(read_battery(), 2); Serial.println(" V");
-    } else if (strcmp(line, "reboot") == 0) {
-        Serial.println("Rebooting...");
-        delay(100);
-#if defined(HELTEC_T114)
-        NVIC_SystemReset();
-#elif defined(HELTEC_V3) || defined(HELTEC_V4)
-        ESP.restart();
-#endif
+    }
+    if (best) {
+        const char* a = line + bestLen;
+        while (*a == ' ') a++;
+        best->fn(best, a);
+        return;
+    }
+
+    // Not a command: suggest prefixes (what Tab would offer), else unknown.
+    const ShellCmd* m[CMD_COUNT];
+    int n = cmd_matches(line, strlen(line), m, CMD_COUNT);
+    if (n > 0) {
+        Serial.println("Did you mean:");
+        for (int i = 0; i < n; i++) { Serial.print("  "); Serial.println(m[i]->name); }
     } else {
-        // If the input is a prefix of known commands, suggest them (Tab would
-        // have completed/listed these); otherwise it's genuinely unknown.
-        const char* m[CMD_COUNT];
-        int n = cmd_matches(line, strlen(line), m, CMD_COUNT);
-        if (n > 0) {
-            Serial.println("Did you mean:");
-            for (int i = 0; i < n; i++) { Serial.print("  "); Serial.println(m[i]); }
-        } else {
-            Serial.print("Unknown command: ");
-            Serial.println(line);
-            Serial.println("Type 'help' for commands");
-        }
+        Serial.print("Unknown command: ");
+        Serial.println(line);
+        Serial.println("Type 'help' for commands");
     }
 }
 
