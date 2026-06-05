@@ -717,7 +717,7 @@ static void draw_wp_menu() {
     int top = wpMenuSel - ROWS / 2;
     if (top > WP_MENU_COUNT - ROWS) top = WP_MENU_COUNT - ROWS; if (top < 0) top = 0;
     for (int r = 0; r < ROWS && top + r < WP_MENU_COUNT; r++) {
-        int idx = top + r, y = 30 + r * 22;
+        int idx = top + r, y = 40 + r * 22;
         if (idx == wpMenuSel) {
             cv.fillRect(0, y - 16, 240, 21, DISPLAY_CYAN);
             T(6, y, DISPLAY_BLACK, WP_MENU_ITEMS[idx]);
