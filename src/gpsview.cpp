@@ -598,7 +598,7 @@ static void draw_wayfinder() {
     const int cx = 21, cy = 32, r = 12;           // circle y20-44, inside content band
     tft.drawCircle(cx, cy, r, DISPLAY_WHITE);
     if (!fix)         display_draw_text_small_abs(cx - 6, cy - 3, DISPLAY_WHITE, "NF");
-    else if (arrived) display_draw_text_small_abs(cx - 6, cy - 3, DISPLAY_GREEN, "HR");
+    else if (arrived) tft.fillCircle(cx, cy, 4, DISPLAY_GREEN); // "here" = filled dot
     else              draw_arrow(tft, cx, cy, r - 2, shownArrow, acol);
     char rb[16];
     display_draw_text_small_abs(44, 16, DISPLAY_WHITE, distbuf);
