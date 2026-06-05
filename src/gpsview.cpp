@@ -162,16 +162,20 @@ static void clamp_wp_cursor() {
     if (wpCursor < 0)  wpCursor = 0;
 }
 
-// Short press: cursor/menu navigation on the Waypoints page, else next page.
+// Short press advances the page carousel (wrapping 4/4 -> 1/4). On the Waypoints
+// page it first walks the list/menu, then spills over to the next page once the
+// end is reached, so the carousel never gets stuck.
 void gpsview_short_press() {
     needClear = true;
     if (page == PAGE_WAYPOINTS) {
-        if (wpState == WP_LIST) {
-            if (wp_count() > 0) wpCursor = (wpCursor + 1) % wp_count();
-        } else {
+        if (wpState == WP_MENU) {
             wpMenuSel = (wpMenuSel + 1) % WP_MENU_COUNT;
+            return;
         }
-        return;
+        int n = wp_count();
+        if (n > 0 && wpCursor < n - 1) { wpCursor++; return; } // next waypoint
+        wpCursor = 0;                                          // reset for next visit
+        // at end of list (or empty): fall through to advance the page
     }
     page = (GpsPage)((page + 1) % PAGE_COUNT);
 }
