@@ -243,7 +243,7 @@ void gps_datetime(int *year, int *mon, int *day, int *hour, int *min, int *sec) 
 void gps_cmd_raw() {
 #if HAS_GPS && defined(PIN_GPS_RX) && defined(PIN_GPS_TX)
     Serial.println("--- GPS Raw (5s) ---");
-    Serial.printf("Pins: RX=%d TX=%d  Baud: 9600\n", PIN_GPS_RX, PIN_GPS_TX);
+    Serial.printf("Pins: RX=%d TX=%d  Baud: 9600\r\n", PIN_GPS_RX, PIN_GPS_TX);
     unsigned long start = millis();
     int count = 0;
     while (millis() - start < 5000) {
@@ -254,7 +254,7 @@ void gps_cmd_raw() {
             count++;
         }
     }
-    Serial.printf("\n--- %d bytes in 5s ---\n", count);
+    Serial.printf("\r\n--- %d bytes in 5s ---\r\n", count);
 #else
     Serial.println("No GPS hardware");
 #endif
@@ -263,7 +263,7 @@ void gps_cmd_raw() {
 void gps_cmd_init() {
 #if defined(GPS_MODULE_TYPE) && GPS_MODULE_TYPE == GPS_MODULE_TYPE_M100 && HAS_GPS && defined(PIN_GPS_RX) && defined(PIN_GPS_TX)
     Serial.println("--- M100 Init (debug) ---");
-    Serial.printf("Pins: RX=%d TX=%d  Baud: %d\n", PIN_GPS_RX, PIN_GPS_TX, GPS_BAUD);
+    Serial.printf("Pins: RX=%d TX=%d  Baud: %d\r\n", PIN_GPS_RX, PIN_GPS_TX, GPS_BAUD);
 
     Serial1.end();
     delay(10);
@@ -299,7 +299,7 @@ void gps_cmd_init() {
         m100_ok = true;
         parser->setUART1Output(COM_TYPE_UBX);
         parser->setAutoPVT(true);
-        Serial.printf("Protocol: %d.%d\n",
+        Serial.printf("Protocol: %d.%d\r\n",
             parser->getProtocolVersionHigh(),
             parser->getProtocolVersionLow());
     }
@@ -364,7 +364,7 @@ void gps_cmd_monitor() { Serial.println("No GPS hardware"); }
 void test_baud_rates_and_pins(int rx, int tx, const char* label) {
     long bauds[] = {9600, 38400, 115200};
     for (int b = 0; b < 3; b++) {
-        Serial.printf("\nTesting %s at %ld baud...\n", label, bauds[b]);
+        Serial.printf("\nTesting %s at %ld baud...\r\n", label, bauds[b]);
         Serial1.end();
         delay(10);
 #if defined(ESP32)
@@ -405,7 +405,7 @@ void test_baud_rates_and_pins(int rx, int tx, const char* label) {
             }
         }
         
-        Serial.printf("\nResult: %d bytes rx'd\n", received);
+        Serial.printf("\nResult: %d bytes rx'd\r\n", received);
         if (received > 5) break; 
     }
 }
