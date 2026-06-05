@@ -39,6 +39,7 @@ void display_init();
 void display_on();
 void display_off();
 bool display_is_on();
+void display_set_backlight(uint8_t pct); // TFT PWM brightness 0-100; no-op on OLED
 
 // Status mode
 void display_update(float lat, float lon, int sats, bool gps_fix,

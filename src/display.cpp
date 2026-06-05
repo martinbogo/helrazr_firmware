@@ -62,7 +62,7 @@ void display_init() {
     tft.setTextSize(1);
     tft.setTextWrap(false);
 
-    digitalWrite(PIN_TFT_BL, LOW);
+    display_set_backlight(100); // full on; theme/prefs adjust it shortly after
 #elif HAS_OLED
 #if defined(HELTEC_V3) || defined(HELTEC_V4)
     // Core esp32-s3-devkitc-1 variant doesn't auto-enable Vext (Pin 36),
@@ -96,11 +96,26 @@ void display_init() {
     display_update_buffer();
 }
 
+#if HAS_TFT
+static uint8_t s_backlightPct = 100;
+#endif
+
+// TFT backlight is active-LOW: pct 100 -> pin fully LOW, pct 0 -> pin HIGH.
+void display_set_backlight(uint8_t pct) {
+#if HAS_TFT
+    if (pct > 100) pct = 100;
+    s_backlightPct = pct;
+    analogWrite(PIN_TFT_BL, 255 - (pct * 255) / 100);
+#else
+    (void)pct; // OLED has no backlight; brightness is the contrast register
+#endif
+}
+
 void display_on() {
 #if HAS_TFT
     digitalWrite(PIN_TFT_PWR, LOW);
     delay(50);
-    digitalWrite(PIN_TFT_BL, LOW);
+    display_set_backlight(s_backlightPct);
 #elif HAS_OLED
     tft.ssd1306_command(SSD1306_DISPLAYON);
 #endif
@@ -109,7 +124,7 @@ void display_on() {
 
 void display_off() {
 #if HAS_TFT
-    digitalWrite(PIN_TFT_BL, HIGH);
+    analogWrite(PIN_TFT_BL, 255); // backlight off (active-low)
     digitalWrite(PIN_TFT_PWR, HIGH);
 #elif HAS_OLED
     tft.ssd1306_command(SSD1306_DISPLAYOFF);

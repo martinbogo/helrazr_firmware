@@ -151,12 +151,12 @@ void setup() {
 
     Serial.println("Initializing display...");
     display_init();
+    prefs_init();   // load prefs before theme so the backlight uses the saved brightness
     theme_init();
 
     Serial.println("Initializing GPS...");
     gps_init();
     wp_init();
-    prefs_init();
 
     Serial.println("Initializing LoRa...");
     lora_init();

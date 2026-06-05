@@ -30,11 +30,23 @@ static void units_value(char *b, size_t n)  { snprintf(b, n, "%s", units_name(pr
 static void units_change()                  { prefs_set_units(prefs_units() + 1); }
 static void coords_value(char *b, size_t n) { snprintf(b, n, "%s", coords_name(prefs_coords())); }
 static void coords_change()                 { prefs_set_coords(prefs_coords() + 1); }
+#if HAS_TFT
+static void bright_value(char *b, size_t n) { snprintf(b, n, "%d%%", prefs_brightness()); }
+static void bright_change() {
+    int b = prefs_brightness();
+    b = (b >= 100) ? 25 : b + 25;       // cycle 25/50/75/100
+    prefs_set_brightness(b);
+    theme_set(theme_current());          // re-apply so the backlight updates now
+}
+#endif
 
 static const SettingItem ITEMS[] = {
     { "Theme",  theme_value,  theme_change },
     { "Units",  units_value,  units_change },
     { "Coords", coords_value, coords_change },
+#if HAS_TFT
+    { "Bright", bright_value, bright_change },
+#endif
 };
 static const int ITEM_COUNT = sizeof(ITEMS) / sizeof(ITEMS[0]);
 

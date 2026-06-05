@@ -9,6 +9,7 @@
 
 #include "theme.h"
 #include "display.h"
+#include "prefs.h"
 
 #if defined(ESP32)
 #include <Preferences.h>
@@ -72,6 +73,8 @@ static void apply() {
     DISPLAY_YELLOW = t.yellow;
     DISPLAY_RED    = t.red;
     DISPLAY_GRAY   = t.gray;
+    // Night themes also dim the TFT backlight; others honour the brightness pref.
+    display_set_backlight(t.oledDim ? 30 : (uint8_t)prefs_brightness());
 #endif
 #if HAS_OLED
     // Monochrome panel: themes can't change colour, so a "dim" theme just lowers
