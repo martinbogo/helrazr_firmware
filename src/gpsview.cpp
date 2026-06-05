@@ -317,9 +317,10 @@ static void chrome_tft(const char *footer = nullptr, const char *title = nullptr
     char sb[8]; snprintf(sb, sizeof(sb), "%d", sats);
     Ts(178, 6, DISPLAY_WHITE, sb);
 
-    // Page position dots, far right.
+    // Page position dots, right-aligned so the strip fits any PAGE_COUNT.
+    const int dotSpacing = 9, dotRight = 236; // last dot center; 236+3 < 240 edge
     for (int i = 0; i < PAGE_COUNT; i++) {
-        int x = 206 + i * 9;
+        int x = dotRight - (PAGE_COUNT - 1 - i) * dotSpacing;
         if (i == page) cv.fillCircle(x, 9, 3, DISPLAY_CYAN);
         else           cv.fillCircle(x, 9, 1, DISPLAY_GRAY);
     }
