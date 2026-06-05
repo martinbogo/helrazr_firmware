@@ -109,7 +109,7 @@ static const char* compass_mode_name(CompassMode m) {
 #endif
 
 // Waypoint Manager (Page 4) sub-state.
-enum WpState { WP_LIST = 0, WP_MENU };
+enum WpState { WP_LIST = 0, WP_MENU, WP_CONFIRM };
 static WpState  wpState  = WP_LIST;
 static int      wpCursor = 0; // highlighted waypoint (stored/route order)
 static int      wpMenuSel = 0;
@@ -173,6 +173,7 @@ static void clamp_wp_cursor() {
 void gpsview_short_press() {
     needClear = true;
     if (page == PAGE_WAYPOINTS) {
+        if (wpState == WP_CONFIRM) { wpState = WP_LIST; return; } // short = cancel
         if (wpState == WP_MENU) {
             wpMenuSel = (wpMenuSel + 1) % WP_MENU_COUNT;
             return;
@@ -198,8 +199,9 @@ void gpsview_double_press() {
         return;
     }
     if (page == PAGE_WAYPOINTS) {
-        if (wpState == WP_LIST) { wpState = WP_MENU; wpMenuSel = 0; }
-        else                    { wp_menu_execute(wpMenuSel); }
+        if (wpState == WP_LIST)         { wpState = WP_MENU; wpMenuSel = 0; }
+        else if (wpState == WP_CONFIRM) { wp_delete(wpCursor); clamp_wp_cursor(); wpState = WP_LIST; }
+        else                            { wp_menu_execute(wpMenuSel); }
         return;
     }
     if (page == PAGE_TRIP) {
@@ -211,7 +213,7 @@ void gpsview_double_press() {
 // Long press: close the context menu, else step back to page 1, else (false)
 // let the main loop exit to the main menu.
 bool gpsview_long_press() {
-    if (page == PAGE_WAYPOINTS && wpState == WP_MENU) {
+    if (page == PAGE_WAYPOINTS && (wpState == WP_MENU || wpState == WP_CONFIRM)) {
         wpState = WP_LIST; needClear = true; return true;
     }
     if (page != PAGE_FIX) { page = PAGE_FIX; needClear = true; return true; }
@@ -726,9 +728,25 @@ static void draw_wp_menu() {
 #endif
 }
 
+static void draw_wp_confirm() {
+    const Waypoint *w = wp_get(wpCursor);
+    char msg[28]; snprintf(msg, sizeof(msg), "Delete %s?", w ? w->name : "?");
+#if HAS_OLED
+    display_draw_text_small_abs(0, 0, DISPLAY_CYAN, "Confirm");
+    display_draw_hline(0, 9, 128, DISPLAY_GRAY);
+    display_draw_text_small_abs(0, 24, DISPLAY_WHITE, msg);
+    display_draw_text_small_abs(0, 42, DISPLAY_RED, "Dbl=Yes  Short=No");
+#else
+    chrome_tft("Dbl=Delete   Short or Long=Cancel", "Confirm");
+    T(8, 64, DISPLAY_WHITE, msg);
+    T(8, 92, DISPLAY_RED, "Double-press to delete");
+#endif
+}
+
 static void draw_waypoints() {
-    if (wpState == WP_MENU) draw_wp_menu();
-    else                    draw_wp_list();
+    if (wpState == WP_CONFIRM)   draw_wp_confirm();
+    else if (wpState == WP_MENU) draw_wp_menu();
+    else                         draw_wp_list();
 }
 
 // =============================================================================
@@ -837,9 +855,9 @@ static void wp_menu_execute(int sel) {
         case 5: // Move Down
             if (wp_move_down(wpCursor)) wpCursor++;
             break;
-        case 6: // Delete
-            wp_delete(wpCursor); clamp_wp_cursor();
-            break;
+        case 6: // Delete -> ask for confirmation first
+            wpState = WP_CONFIRM;
+            return; // don't fall through to the WP_LIST reset below
         case 7: // Sort Nearest
             if (gps_has_fix()) { wp_sort_nearest(gps_latitude(), gps_longitude()); wpCursor = 0; }
             break;
