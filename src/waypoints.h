@@ -15,10 +15,12 @@
 #define TRACK_MAX     250  // recorded track points held in RAM
 
 struct Waypoint {
-    char  name[WP_NAME_LEN];
-    float lat;
-    float lon;
-    float alt;
+    char    name[WP_NAME_LEN];
+    float   lat;
+    float   lon;
+    float   alt;
+    int16_t rssi;  // dBm of last RX packet at mark time (0 = no signal logged)
+    int8_t  snr;   // dB
 };
 
 struct TrackPoint {
@@ -27,6 +29,7 @@ struct TrackPoint {
     float    alt;
     uint16_t year;
     uint8_t  mon, day, hr, min, sec;
+    int16_t  rssi; // dBm of last RX packet at sample time
 };
 
 // Lifecycle

@@ -157,7 +157,8 @@ static void process_line(char* line) {
         Serial.printf("%d waypoint(s):\n", wp_count());
         for (int i = 0; i < wp_count(); i++) {
             const Waypoint* w = wp_get(i);
-            Serial.printf("  %d %-8s %.6f, %.6f  %.1fm\n", i, w->name, w->lat, w->lon, w->alt);
+            Serial.printf("  %d %-8s %.6f, %.6f  %.1fm  RSSI %d SNR %d\n",
+                          i, w->name, w->lat, w->lon, w->alt, w->rssi, w->snr);
         }
     } else if (strcmp(line, "wp mark") == 0) {
         if (!gps_has_fix()) {

@@ -8,6 +8,7 @@
  */
 
 #include "waypoints.h"
+#include "lora.h"
 #include <math.h>
 #include <string.h>
 
@@ -108,6 +109,8 @@ int wp_add_named(float lat, float lon, float alt, const char *name) {
     if (name && name[0]) snprintf(w.name, sizeof(w.name), "%s", name);
     else                 snprintf(w.name, sizeof(w.name), "WPT%02d", s_wp_count + 1);
     w.lat = lat; w.lon = lon; w.alt = alt;
+    w.rssi = (int16_t)lroundf(lora_last_rssi()); // geo-tag the last RX signal
+    w.snr  = (int8_t)lroundf(lora_last_snr());
     int idx = s_wp_count++;
     wp_save();
     return idx;
@@ -261,6 +264,7 @@ void track_tick(bool valid, float lat, float lon, float alt,
     p.lat = lat; p.lon = lon; p.alt = alt;
     p.year = year; p.mon = mon; p.day = day;
     p.hr = hr; p.min = min; p.sec = sec;
+    p.rssi = (int16_t)lroundf(lora_last_rssi()); // geo-tag signal along the track
     s_track_head = (s_track_head + 1) % TRACK_MAX;
     if (s_track_head == 0) s_track_head_wrapped = true;
     if (!s_track_head_wrapped) s_track_count = s_track_head;
@@ -290,6 +294,7 @@ void gps_export_gpx(Stream &out) {
         out.printf("  <wpt lat=\"%.6f\" lon=\"%.6f\">\n", w.lat, w.lon);
         out.printf("    <ele>%.1f</ele>\n", w.alt);
         out.printf("    <name>%s</name>\n", w.name);
+        if (w.rssi != 0) out.printf("    <cmt>RSSI %d dBm SNR %d dB</cmt>\n", w.rssi, w.snr);
         out.println("  </wpt>");
     }
     int n = track_count();
@@ -301,6 +306,7 @@ void gps_export_gpx(Stream &out) {
             out.printf("    <trkpt lat=\"%.6f\" lon=\"%.6f\">", p->lat, p->lon);
             out.printf("<ele>%.1f</ele>", p->alt);
             if (p->year > 0) { iso_time(p, ts, sizeof(ts)); out.printf("<time>%s</time>", ts); }
+            if (p->rssi != 0) out.printf("<cmt>RSSI %d</cmt>", p->rssi);
             out.println("</trkpt>");
         }
         out.println("  </trkseg></trk>");
@@ -309,16 +315,16 @@ void gps_export_gpx(Stream &out) {
 }
 
 void gps_export_csv(Stream &out) {
-    out.println("type,name,lat,lon,alt,utc");
+    out.println("type,name,lat,lon,alt,utc,rssi,snr");
     char ts[24];
     for (int i = 0; i < s_wp_count; i++) {
         const Waypoint &w = s_wp[i];
-        out.printf("wpt,%s,%.6f,%.6f,%.1f,\n", w.name, w.lat, w.lon, w.alt);
+        out.printf("wpt,%s,%.6f,%.6f,%.1f,,%d,%d\n", w.name, w.lat, w.lon, w.alt, w.rssi, w.snr);
     }
     int n = track_count();
     for (int i = 0; i < n; i++) {
         const TrackPoint *p = track_get(i);
         if (p->year > 0) iso_time(p, ts, sizeof(ts)); else ts[0] = '\0';
-        out.printf("trk,,%.6f,%.6f,%.1f,%s\n", p->lat, p->lon, p->alt, ts);
+        out.printf("trk,,%.6f,%.6f,%.1f,%s,%d,\n", p->lat, p->lon, p->alt, ts, p->rssi);
     }
 }
