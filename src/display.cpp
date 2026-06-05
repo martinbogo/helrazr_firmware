@@ -207,25 +207,26 @@ void display_update(float lat, float lon, int sats, bool gps_fix,
     drawLineTwoCol(y, bat_color, buf, DISPLAY_WHITE, ubuf, 120);
 
 #else  // OLED
-    int y = 0;
+    ui_header("Status");
+    int y = 10;
 
 #if HAS_GPS
-    snprintf(buf, sizeof(buf), "GPS: %-3s  Sats: %d  Rx: %lu", gps_fix ? "3D" : "No", sats, gps_chars_processed());
+    snprintf(buf, sizeof(buf), "GPS %-3s Sat %d Rx %lu", gps_fix ? "3D" : "No", sats, gps_chars_processed());
     display_draw_text_abs(0, y, DISPLAY_GREEN, buf);
 #endif
-    y += 14;
+    y += 11;
 
     char rssibuf[8];
     fmtFloat(rssibuf, sizeof(rssibuf), lora_rssi, 5, 1);
     snprintf(buf, sizeof(buf), "LoRa %s  RSSI: %s", lora_listening ? "RX" : "--", rssibuf);
     display_draw_text_abs(0, y, DISPLAY_YELLOW, buf);
-    y += 14;
+    y += 11;
 
     char snrbuf[8];
     fmtFloat(snrbuf, sizeof(snrbuf), lora_snr, 4, 1);
     snprintf(buf, sizeof(buf), "SNR:%s Pk:%d", snrbuf, lora_packets);
     display_draw_text_abs(0, y, DISPLAY_WHITE, buf);
-    y += 14;
+    y += 11;
 
     char batbuf[7];
     fmtFloat(batbuf, sizeof(batbuf), bat_voltage, 4, 2);
