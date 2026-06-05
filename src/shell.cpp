@@ -136,6 +136,59 @@ static const char* args_of(const char* line, const char* cmd) {
     return p;
 }
 
+// Canonical command list -- drives Tab completion and "did you mean" hints.
+static const char* COMMANDS[] = {
+    "help", "status",
+    "gps", "gps raw", "gps init", "gps monitor", "gps test",
+    "gps export", "gps export csv",
+    "wp list", "wp mark", "wp add", "wp del", "wp rename", "wp edit",
+    "wp move", "wp project", "wp sort near", "wp sort name", "wp clear", "wp import",
+    "goto", "route start", "route stop", "route",
+    "track start", "track stop", "track clear", "track",
+    "lora", "lora listen", "lora stop", "lora freq", "lora bw", "lora sf",
+    "theme", "display on", "display off", "led on", "led off", "bat", "reboot",
+};
+static const int CMD_COUNT = sizeof(COMMANDS) / sizeof(COMMANDS[0]);
+
+// Collects commands that start with the current input. Returns the count.
+static int cmd_matches(const char* prefix, int len, const char** out, int cap) {
+    int n = 0;
+    for (int i = 0; i < CMD_COUNT && n < cap; i++)
+        if (strncmp(COMMANDS[i], prefix, len) == 0) out[n++] = COMMANDS[i];
+    return n;
+}
+
+// Tab completion: extend to the longest common prefix of matches; complete +
+// add a space if unique; list candidates if it can't extend further.
+static void shell_complete() {
+    const char* m[CMD_COUNT];
+    int n = cmd_matches(linebuf, linepos, m, CMD_COUNT);
+    if (n == 0) return;
+    int lcp = strlen(m[0]);
+    for (int i = 1; i < n; i++) {
+        int j = 0;
+        while (j < lcp && m[i][j] == m[0][j]) j++;
+        lcp = j;
+    }
+    if (lcp > linepos) {                                  // extend toward the match
+        while (linepos < lcp && linepos < (int)sizeof(linebuf) - 1) {
+            char c = m[0][linepos];
+            linebuf[linepos++] = c;
+            Serial.print(c);
+        }
+        if (n == 1 && linepos < (int)sizeof(linebuf) - 1) { // unique -> trailing space
+            linebuf[linepos++] = ' ';
+            Serial.print(' ');
+        }
+    } else {                                              // ambiguous -> list options
+        Serial.println();
+        for (int i = 0; i < n; i++) { Serial.print("  "); Serial.println(m[i]); }
+        Serial.print(SHELL_PROMPT);
+        linebuf[linepos] = '\0';
+        Serial.print(linebuf);
+    }
+}
+
 // ---- waypoint import (multi-line) -------------------------------------------
 // `wp import` / `wp import gpx` enter a mode where subsequent lines are parsed
 // as waypoints until a line containing just "." (or "end").
@@ -376,9 +429,18 @@ static void process_line(char* line) {
         ESP.restart();
 #endif
     } else {
-        Serial.print("Unknown command: ");
-        Serial.println(line);
-        Serial.println("Type 'help' for commands");
+        // If the input is a prefix of known commands, suggest them (Tab would
+        // have completed/listed these); otherwise it's genuinely unknown.
+        const char* m[CMD_COUNT];
+        int n = cmd_matches(line, strlen(line), m, CMD_COUNT);
+        if (n > 0) {
+            Serial.println("Did you mean:");
+            for (int i = 0; i < n; i++) { Serial.print("  "); Serial.println(m[i]); }
+        } else {
+            Serial.print("Unknown command: ");
+            Serial.println(line);
+            Serial.println("Type 'help' for commands");
+        }
     }
 }
 
@@ -409,6 +471,9 @@ void shell_update() {
                 linepos = 0;
             }
             Serial.print(SHELL_PROMPT); // always re-prompt, even on a blank line
+        } else if (c == '\t') {  // tab completion
+            lastCR = false;
+            if (!s_importMode) shell_complete();
         } else if (c == '\b' || c == 127) {  // backspace/delete
             lastCR = false;
             if (linepos > 0) {
