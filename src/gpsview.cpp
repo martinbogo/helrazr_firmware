@@ -13,6 +13,7 @@
 #include "waypoints.h"
 #include "button.h"
 #include "theme.h"
+#include "prefs.h"
 #include <math.h>
 #if HAS_TFT
 #include <Fonts/FreeSans9pt7b.h>
@@ -154,6 +155,8 @@ void gpsview_enter() {
     lastDraw = 0;
     s_compassN.init = false;   // needles snap to current heading on entry
     s_wayfindN.init = false;
+    compassMode = (CompassMode)prefs_compass_mode();
+    if (compassMode >= CM_COUNT) compassMode = CM_NORTH_UP;
 }
 
 static void clamp_wp_cursor() {
@@ -185,6 +188,7 @@ void gpsview_double_press() {
     needClear = true;
     if (page == PAGE_COMPASS) {
         compassMode = (CompassMode)((compassMode + 1) % CM_COUNT);
+        prefs_set_compass_mode(compassMode);
         return;
     }
     if (page == PAGE_WAYFINDER) {
@@ -287,11 +291,6 @@ static float bearing_deg(float lat1, float lon1, float lat2, float lon2) {
     float x = cosf(radians(lat1)) * sinf(radians(lat2)) -
               sinf(radians(lat1)) * cosf(radians(lat2)) * cosf(dlon);
     return fmodf(degrees(atan2f(y, x)) + 360.0f, 360.0f);
-}
-
-static void fmt_distance(float m, char *buf, size_t cap) {
-    if (m < 1000.0f) snprintf(buf, cap, "%dm", (int)lroundf(m));
-    else             snprintf(buf, cap, "%.2fkm", m / 1000.0f);
 }
 
 #if HAS_TFT
@@ -407,8 +406,9 @@ static void draw_fix() {
     char hdopbuf[12], satbuf[12], llbuf[28], altbuf[16], timebuf[12];
     snprintf(hdopbuf, sizeof(hdopbuf), hdop > 0 ? "%.1f" : "--", hdop);
     snprintf(satbuf, sizeof(satbuf), "Sats %d", sats);
-    snprintf(llbuf, sizeof(llbuf), "%.4f, %.4f", lat, lon);
-    snprintf(altbuf, sizeof(altbuf), "Alt %dm", (int)alt);
+    fmt_position(lat, lon, llbuf, sizeof(llbuf));
+    char altv[12]; fmt_alt(alt, altv, sizeof(altv));
+    snprintf(altbuf, sizeof(altbuf), "Alt %s", altv);
     if (tvalid) snprintf(timebuf, sizeof(timebuf), "%02d:%02d:%02dZ", hh, mm, ss);
     else        snprintf(timebuf, sizeof(timebuf), "--:--Z");
 
@@ -458,7 +458,7 @@ static void draw_compass() {
     char hdg[8], spdbuf[12];
     if (moving) snprintf(hdg, sizeof(hdg), "%03d", ((int)lroundf(shown)) % 360);
     else        snprintf(hdg, sizeof(hdg), "---"); // stopped: the hub dot says it, no imperative
-    snprintf(spdbuf, sizeof(spdbuf), "%.1f km/h", spd);
+    fmt_speed(spd, spdbuf, sizeof(spdbuf));
     // Bright white in day themes; dim only the stationary state in Night/Amber.
     uint16_t ring = (moving || theme_bright_ui()) ? DISPLAY_WHITE : DISPLAY_GRAY;
 
@@ -570,7 +570,7 @@ static void draw_wayfinder() {
     uint16_t acol = arrived ? DISPLAY_GREEN : (moving ? DISPLAY_CYAN : DISPLAY_GRAY);
 
     char distbuf[12], brgbuf[8], etabuf[8], tgt[20];
-    fmt_distance(dist, distbuf, sizeof(distbuf));
+    fmt_dist(dist, distbuf, sizeof(distbuf));
     snprintf(brgbuf, sizeof(brgbuf), "%03d", ((int)lroundf(brg)) % 360);
     if (route) snprintf(tgt, sizeof(tgt), "%s L%d/%d", w->name, nav_route_leg(), nav_route_total());
     else       snprintf(tgt, sizeof(tgt), ">%s", w->name);
@@ -622,7 +622,7 @@ static void wp_row_text(int idx, char *buf, size_t cap) {
     if (gps_has_fix()) {
         float d = haversine_m(gps_latitude(), gps_longitude(), w->lat, w->lon);
         float b = bearing_deg(gps_latitude(), gps_longitude(), w->lat, w->lon);
-        char db[10]; fmt_distance(d, db, sizeof(db));
+        char db[10]; fmt_dist(d, db, sizeof(db));
         snprintf(buf, cap, "%-7s %7s %03d", w->name, db, ((int)lroundf(b)) % 360);
     } else {
         snprintf(buf, cap, "%-7s %.4f,%.4f", w->name, w->lat, w->lon);

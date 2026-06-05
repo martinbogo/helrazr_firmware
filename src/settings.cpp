@@ -11,6 +11,7 @@
 #include "display.h"
 #include "layout.h"
 #include "theme.h"
+#include "prefs.h"
 #if HAS_TFT
 #include <Fonts/FreeSans9pt7b.h>
 #endif
@@ -23,11 +24,17 @@ struct SettingItem {
     void (*change)();
 };
 
-static void theme_value(char *b, size_t n) { snprintf(b, n, "%s", theme_name(theme_current())); }
-static void theme_change()                 { theme_next(); }
+static void theme_value(char *b, size_t n)  { snprintf(b, n, "%s", theme_name(theme_current())); }
+static void theme_change()                  { theme_next(); }
+static void units_value(char *b, size_t n)  { snprintf(b, n, "%s", units_name(prefs_units())); }
+static void units_change()                  { prefs_set_units(prefs_units() + 1); }
+static void coords_value(char *b, size_t n) { snprintf(b, n, "%s", coords_name(prefs_coords())); }
+static void coords_change()                 { prefs_set_coords(prefs_coords() + 1); }
 
 static const SettingItem ITEMS[] = {
-    { "Theme", theme_value, theme_change },
+    { "Theme",  theme_value,  theme_change },
+    { "Units",  units_value,  units_change },
+    { "Coords", coords_value, coords_change },
 };
 static const int ITEM_COUNT = sizeof(ITEMS) / sizeof(ITEMS[0]);
 

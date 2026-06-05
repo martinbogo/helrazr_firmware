@@ -34,6 +34,7 @@
 #include "waypoints.h"
 #include "theme.h"
 #include "settings.h"
+#include "prefs.h"
 
 AppMode currentMode = MODE_MENU;
 
@@ -154,6 +155,7 @@ void setup() {
     Serial.println("Initializing GPS...");
     gps_init();
     wp_init();
+    prefs_init();
 
     Serial.println("Initializing LoRa...");
     lora_init();
