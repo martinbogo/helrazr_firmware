@@ -469,21 +469,27 @@ static void draw_compass() {
     display_draw_hline(0, 9, 128, DISPLAY_GRAY);
     uint16_t needle = moving ? DISPLAY_RED : DISPLAY_GRAY;
     if (compassMode == CM_BUBBLE) {
-        const int cxc = 64, yb = 13; const float ppd = 56.0f / 55.0f;
-        display_draw_hline(cxc - 56, yb + 11, 112, DISPLAY_WHITE);
-        for (int d = 0; d < 360; d += 15) {
-            if (d % 45 == 0) continue;
-            int x = cxc + (int)lroundf(wrap180(d - shown) * ppd);
-            if (x > cxc - 56 && x < cxc + 56) tft.drawPixel(x, yb + 11, DISPLAY_WHITE);
-        }
+        // Big 2x labels for TFT-like legibility; no baseline line. Heading and
+        // speed share one line at the bottom to free the vertical space.
+        const int cxc = 64; const float ppd = 1.0f;
+        tft.fillTriangle(cxc - 3, 11, cxc + 3, 11, cxc, 15, DISPLAY_WHITE); // centre marker
+        tft.setFont(NULL); tft.setTextSize(2); tft.setTextColor(DISPLAY_WHITE);
         static const char *C8[8] = { "N","NE","E","SE","S","SW","W","NW" };
         for (int i = 0; i < 8; i++) {
             int x = cxc + (int)lroundf(wrap180(i * 45 - shown) * ppd);
-            if (x < cxc - 52 || x > cxc + 52) continue;
-            int w = strlen(C8[i]) * 6;
-            display_draw_text_small_abs(x - w / 2, yb, DISPLAY_WHITE, C8[i]);
+            int w = strlen(C8[i]) * 12; // size-2 char = 12px wide
+            if (x - w / 2 < 1 || x + w / 2 > 127) continue;
+            tft.setCursor(x - w / 2, 20);
+            tft.print(C8[i]);
         }
-        display_draw_vline(cxc, yb - 3, 6, DISPLAY_WHITE); // centre marker
+        tft.setTextSize(1);
+        for (int d = 0; d < 360; d += 15) {   // dots between letters
+            if (d % 45 == 0) continue;
+            int x = cxc + (int)lroundf(wrap180(d - shown) * ppd);
+            if (x > 1 && x < 127) tft.drawPixel(x, 40, DISPLAY_WHITE);
+        }
+        char rb[22]; snprintf(rb, sizeof(rb), "%s  %s", hdg, spdbuf); // heading + speed
+        display_draw_text_small_abs(0, 46, DISPLAY_WHITE, rb);
     } else {
         const int cx = 21, cy = 32, r = 12;
         tft.drawCircle(cx, cy, r, ring);
@@ -495,10 +501,10 @@ static void draw_compass() {
         if (compassMode == CM_DIR_UP) draw_navarrow(tft, cx, cy, r - 2, DISPLAY_WHITE); // always
         else if (moving)              draw_arrow(tft, cx, cy, r - 2, needleA, needle);
         else                          tft.fillCircle(cx, cy, 2, DISPLAY_WHITE);
+        char hb[14]; snprintf(hb, sizeof(hb), "%s %s", hdg, moving ? cardinal8(shown) : "");
+        display_draw_text_small_abs(46, 30, DISPLAY_WHITE, hb);
+        display_draw_text_small_abs(46, 42, DISPLAY_WHITE, spdbuf);
     }
-    char hb[14]; snprintf(hb, sizeof(hb), "%s %s", hdg, moving ? cardinal8(shown) : "");
-    display_draw_text_small_abs(46, 30, DISPLAY_WHITE, hb);
-    display_draw_text_small_abs(46, 42, DISPLAY_WHITE, spdbuf);
     char f[22]; snprintf(f, sizeof(f), "S:Pg D:%s L:Bk", compass_mode_name(compassMode));
     display_draw_text_small_abs(0, 55, DISPLAY_CYAN, f);
 #else
