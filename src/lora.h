@@ -36,6 +36,10 @@ bool  lora_set_spreading_factor(int sf);
 // Apply a Meshtastic channel preset by index (see modes.h MESH_CHANNELS[])
 void  lora_apply_channel(int idx);
 
+// Retune the radio into the currently selected region's band (see region.h).
+// Called when the region changes at runtime so the change takes effect now.
+void  lora_apply_region();
+
 // Timestamp of last received packet (millis)
 uint32_t lora_last_rx_ms();
 

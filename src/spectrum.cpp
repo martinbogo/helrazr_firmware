@@ -16,15 +16,18 @@
 
 
 static const int   NUM_STEPS  = 53;
-// Band edges follow the selected region (see region.h); the step spans the band.
-static const float FREQ_START = REGION_FREQ_START_MHZ;
-static const float FREQ_END   = REGION_FREQ_END_MHZ;
-static const float FREQ_STEP  = (FREQ_END - FREQ_START) / (float)(NUM_STEPS - 1);
+// Band edges follow the selected region (see region.h) and are refreshed on
+// enter(), so a region change made in Settings takes effect next time you open
+// this screen. The step spans the whole band across NUM_STEPS points.
+static float FREQ_START = 902.0f;
+static float FREQ_END   = 928.0f;
+static float FREQ_STEP  = 0.5f;
 
 // Printf format for an axis-frequency label, chosen by how wide the band is.
 static const char* freqLabelFmt() {
-    if (REGION_SPAN_MHZ >= 10.0f) return "%.0f";
-    if (REGION_SPAN_MHZ >= 2.0f)  return "%.1f";
+    float span = region_span_mhz();
+    if (span >= 10.0f) return "%.0f";
+    if (span >= 2.0f)  return "%.1f";
     return "%.2f";
 }
 
@@ -80,6 +83,10 @@ void spectrum_short_press() {
 
 void spectrum_enter() {
     currentMode = MODE_SWEEP;
+    // Refresh band edges from the current region (may have changed in Settings).
+    FREQ_START = region_freq_start_mhz();
+    FREQ_END   = region_freq_end_mhz();
+    FREQ_STEP  = (FREQ_END - FREQ_START) / (float)(NUM_STEPS - 1);
     lora_set_scan_bandwidth(250.0f);
     display_clear();
     ui_header("Spectrum");
@@ -90,7 +97,7 @@ void spectrum_enter() {
     static const int   oledX[3]   = { 0, 54, 115 };
     static const float oledFrac[3] = { 0.0f, 0.5f, 1.0f };
     for (int i = 0; i < 3; i++) {
-        snprintf(lbl, sizeof(lbl), fmt, FREQ_START + oledFrac[i] * REGION_SPAN_MHZ);
+        snprintf(lbl, sizeof(lbl), fmt, FREQ_START + oledFrac[i] * region_span_mhz());
         display_draw_text_small_abs(oledX[i], GRAPH_Y + GRAPH_H + 4, DISPLAY_CYAN, lbl);
     }
 #else
@@ -98,7 +105,7 @@ void spectrum_enter() {
     static const int   tftX[5]   = { 0, 54, 113, 172, 213 };
     static const float tftFrac[5] = { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f };
     for (int i = 0; i < 5; i++) {
-        snprintf(lbl, sizeof(lbl), fmt, FREQ_START + tftFrac[i] * REGION_SPAN_MHZ);
+        snprintf(lbl, sizeof(lbl), fmt, FREQ_START + tftFrac[i] * region_span_mhz());
         display_draw_text_small_abs(tftX[i], GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, lbl);
     }
 #endif
