@@ -15,6 +15,7 @@
 #include "waypoints.h"
 #include "theme.h"
 #include "modes.h"
+#include "region.h"
 #include "menu.h"
 
 static char linebuf[128];
@@ -51,9 +52,9 @@ static void cmd_status() {
     Serial.print("  Alt:  "); Serial.print(gps_altitude(), 1); Serial.println(" m");
     Serial.print("  Chars:"); Serial.println(gps_chars_processed());
     Serial.println("--- LoRa ---");
-    Serial.print("  Rgn:  "); Serial.print(REGION_NAME);
-    Serial.print(" ("); Serial.print(REGION_FREQ_START_MHZ, 1); Serial.print("-");
-    Serial.print(REGION_FREQ_END_MHZ, 1); Serial.println(" MHz)");
+    Serial.print("  Rgn:  "); Serial.print(region_name(region_current()));
+    Serial.print(" ("); Serial.print(region_freq_start_mhz(), 1); Serial.print("-");
+    Serial.print(region_freq_end_mhz(), 1); Serial.println(" MHz)");
     Serial.print("  Mode: "); Serial.println(lora_is_listening() ? "RX" : "Idle");
     Serial.print("  Freq: "); Serial.print(lora_frequency(), 1); Serial.println(" MHz");
     Serial.print("  BW:   "); Serial.print(lora_bandwidth(), 0); Serial.println(" kHz");
@@ -78,9 +79,9 @@ static void cmd_gps() {
 }
 
 static void cmd_lora() {
-    Serial.print("Rgn:  "); Serial.print(REGION_NAME);
-    Serial.print(" ("); Serial.print(REGION_FREQ_START_MHZ, 1); Serial.print("-");
-    Serial.print(REGION_FREQ_END_MHZ, 1); Serial.println(" MHz)");
+    Serial.print("Rgn:  "); Serial.print(region_name(region_current()));
+    Serial.print(" ("); Serial.print(region_freq_start_mhz(), 1); Serial.print("-");
+    Serial.print(region_freq_end_mhz(), 1); Serial.println(" MHz)");
     Serial.print("Mode: "); Serial.println(lora_is_listening() ? "RX" : "Idle");
     Serial.print("Freq: "); Serial.print(lora_frequency(), 1); Serial.println(" MHz");
     Serial.print("BW:   "); Serial.print(lora_bandwidth(), 0); Serial.println(" kHz");

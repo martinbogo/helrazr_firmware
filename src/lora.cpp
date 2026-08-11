@@ -9,6 +9,7 @@
 
 #include "lora.h"
 #include "modes.h"
+#include "region.h"
 #include "pins.h"
 #include <SPI.h>
 #include <RadioLib.h>
@@ -29,7 +30,7 @@ static float    lastRSSI    = 0;
 static float    lastSNR     = 0;
 static float    lastFreqErr = 0;
 static int      packetCount = 0;
-static float    curFreq     = MESH_CHANNEL_FREQ("LongFast", 250);  // region LongFast slot
+static float    curFreq     = 906.875f;  // set from the region in lora_init()
 static float    curBW       = 125.0f;
 static int      curSF       = 7;
 static uint8_t  curCR       = 5;
@@ -51,6 +52,9 @@ void lora_init() {
     // nRF52840: pins set in constructor, begin() activates the peripheral
     loraSPI.begin();
 #endif
+
+    // Default to the selected region's LongFast slot (region_init() runs first).
+    curFreq = region_channel_freq("LongFast", 250);
 
     int state = radio.begin(curFreq, curBW, curSF, curCR,
                             0x2B,
@@ -148,15 +152,22 @@ void lora_apply_channel(int idx) {
     if (idx < 0 || idx >= MESH_CHANNEL_COUNT) return;
     bool was = listening; if (was) radio.standby();
     const MeshChannel& ch = MESH_CHANNELS[idx];
-    radio.setFrequency(ch.freqMHz);
+    float freq = mesh_channel_freq(idx);   // resolved for the current region
+    radio.setFrequency(freq);
     radio.setBandwidth(ch.bwKHz);
     radio.setSpreadingFactor(ch.sf);
     radio.setCodingRate(ch.cr);
-    curFreq = ch.freqMHz;
+    curFreq = freq;
     curBW   = ch.bwKHz;
     curSF   = ch.sf;
     curCR   = ch.cr;
     if (was) radio.startReceive();
+}
+
+void lora_apply_region() {
+    // Land on the new region's LongFast slot; sweep screens re-read band edges
+    // on entry, and channel screens re-apply their preset on entry.
+    lora_apply_channel(0);
 }
 
 uint32_t lora_last_rx_ms()  { return lastRxMs; }

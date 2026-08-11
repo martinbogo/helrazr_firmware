@@ -12,6 +12,7 @@
 #include "layout.h"
 #include "theme.h"
 #include "prefs.h"
+#include "region.h"
 #if HAS_TFT
 #include <Fonts/FreeSans9pt7b.h>
 #endif
@@ -30,6 +31,8 @@ static void units_value(char *b, size_t n)  { snprintf(b, n, "%s", units_name(pr
 static void units_change()                  { prefs_set_units(prefs_units() + 1); }
 static void coords_value(char *b, size_t n) { snprintf(b, n, "%s", coords_name(prefs_coords())); }
 static void coords_change()                 { prefs_set_coords(prefs_coords() + 1); }
+static void region_value(char *b, size_t n) { snprintf(b, n, "%s", region_name(region_current())); }
+static void region_change()                 { region_next(); }
 #if HAS_TFT
 static void bright_value(char *b, size_t n) { snprintf(b, n, "%d%%", prefs_brightness()); }
 static void bright_change() {
@@ -42,6 +45,7 @@ static void bright_change() {
 
 static const SettingItem ITEMS[] = {
     { "Theme",  theme_value,  theme_change },
+    { "Region", region_value, region_change },
     { "Units",  units_value,  units_change },
     { "Coords", coords_value, coords_change },
 #if HAS_TFT

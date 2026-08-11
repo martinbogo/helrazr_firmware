@@ -11,14 +11,19 @@
 // -------------------------------------------------------------
 
 // --- LoRa Regulatory Region ---
-// Selects the ISM sub-band the firmware monitors. This re-targets the channel
-// presets (Monitor / Duty / FreqOffset), the default receive frequency, and the
-// Spectrum / Waterfall / AutoTrack sweep ranges to match the region you operate
-// in. Frequencies are computed with Meshtastic's own slot algorithm, so presets
-// land exactly where a real Meshtastic node would transmit.
+// The region can be changed on the device itself from the Settings menu, and the
+// choice is saved and restored across reboots. This setting only picks the
+// INITIAL default used the first time the firmware runs (before anything has
+// been saved), so most users can leave it alone.
+//
+// The region selects the ISM sub-band the firmware monitors: it re-targets the
+// channel presets (Monitor / Duty / FreqOffset), the default receive frequency,
+// and the Spectrum / Waterfall / AutoTrack sweep ranges. Frequencies are
+// computed with Meshtastic's own slot algorithm, so presets land exactly where a
+// real Meshtastic node would transmit.
 //
 // Uncomment ONE of the RG_* codes below (full list in src/region.h). Leaving it
-// commented out keeps the previous default of US (902-928 MHz).
+// commented out uses US (902-928 MHz) as the initial default.
 //
 //   RG_US  RG_EU_868  RG_EU_433  RG_ANZ  RG_ANZ_433  RG_JP  RG_KR  RG_TW  RG_IN
 //   RG_RU  RG_CN  RG_TH  RG_NZ_865  RG_UA_433  RG_UA_868  RG_MY_433  RG_MY_919

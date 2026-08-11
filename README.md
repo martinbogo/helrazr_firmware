@@ -34,21 +34,33 @@ python build_and_flash.py -b v3
 
 ### LoRa Region
 
-The firmware defaults to the **US** band (902-928 MHz). To build for another
-regulatory region (ANZ, EU, etc.), set `LORA_REGION` in [`src/config.h`](src/config.h)
-before building:
+The firmware ships defaulting to the **US** band (902-928 MHz), but you can
+change the regulatory region **on the device itself** and it persists across
+reboots.
+
+**On the device (no rebuild needed):** open **Settings** from the menu, highlight
+the **Region** row, and double-press to cycle through the regions (ANZ, EU_868,
+EU_433, JP, and so on). The change applies immediately: the radio retunes, and
+the Meshtastic presets, receive frequency, and Spectrum / Waterfall / AutoTrack
+sweep ranges all follow. Your choice is saved and restored on the next boot.
+
+**Setting the compile-time default (optional):** if you'd rather bake in a
+different starting region, set `LORA_REGION` in [`src/config.h`](src/config.h)
+before building. This only changes the *initial* default used before anything has
+been saved on the device:
 
 ```c
 // src/config.h
 #define LORA_REGION RG_ANZ
 ```
 
-This single setting re-targets everything that touches RF: the Meshtastic
-channel presets used by Monitor / Duty / FreqOffset, the default receive
-frequency, and the Spectrum / Waterfall / AutoTrack sweep ranges. Per-preset
-frequencies are computed with Meshtastic's own frequency-slot algorithm, so each
-preset lands on exactly the frequency a real Meshtastic node would use in that
-region.
+or override it at build time without editing files:
+`pio run -e t114 -D LORA_REGION=RG_ANZ`.
+
+Either way, per-preset frequencies are computed with Meshtastic's own
+frequency-slot algorithm, so each preset lands on exactly the frequency a real
+Meshtastic node would use in that region. The active region and band are shown in
+the serial shell `status` and `lora` command output.
 
 Supported region codes (see [`src/region.h`](src/region.h) for band edges):
 
@@ -57,9 +69,9 @@ Supported region codes (see [`src/region.h`](src/region.h) for band edges):
 `RG_MY_919` `RG_SG_923` `RG_PH_433` `RG_PH_868` `RG_PH_915` `RG_BR_902`
 `RG_NP_865` `RG_LORA_24`
 
-You can also override it at build time without editing files, e.g.
-`pio run -e t114 -D LORA_REGION=RG_ANZ`. The active region and band are shown in
-the serial shell `status` and `lora` command output.
+> **Note:** `RG_LORA_24` (2.4 GHz) is a compile-time-only target; it needs an
+> SX128x radio and is not offered in the on-device menu, since every supported
+> board uses a sub-GHz SX1262.
 
 ### USB Flash
 

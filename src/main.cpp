@@ -33,6 +33,7 @@
 #include "gpsview.h"
 #include "waypoints.h"
 #include "theme.h"
+#include "region.h"
 #include "settings.h"
 #include "prefs.h"
 #include "trip.h"
@@ -157,6 +158,8 @@ void setup() {
     Serial.println("Initializing GPS...");
     gps_init();
     wp_init();
+
+    region_init();   // load saved region before LoRa so it tunes the right band
 
     Serial.println("Initializing LoRa...");
     lora_init();

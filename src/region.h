@@ -8,25 +8,27 @@
  */
 
 // -----------------------------------------------------------------------------
-// region.h - LoRa regulatory region selection (single source of truth)
+// region.h - LoRa regulatory region (runtime-selectable)
 //
 // Meshtastic operates in different ISM sub-bands depending on where you are.
-// Selecting a region here re-targets everything that touches RF: the channel
+// The selected region re-targets everything that touches RF: the channel
 // presets monitored in Monitor/Duty/FreqOffset, the default receive frequency,
 // and the sweep ranges used by Spectrum/Waterfall/AutoTrack.
 //
-// To build for a region other than the US default, define LORA_REGION before
-// this header is seen. The easiest place is src/config.h, e.g.:
+// The region can be changed on the device itself from the Settings menu; the
+// choice is persisted and restored on boot (see region.cpp), exactly like the
+// theme setting. LORA_REGION (below) only sets the *initial* default used the
+// first time the firmware runs, before anything has been saved. Set it in
+// src/config.h or via a build flag, e.g.:
 //
-//     #define LORA_REGION RG_ANZ
+//     #define LORA_REGION RG_ANZ          // in src/config.h
+//     pio run -e t114 -D LORA_REGION=RG_ANZ
 //
-// or on the PlatformIO build_flags line, e.g. `-D LORA_REGION=RG_ANZ`.
-//
-// The band edges below are taken verbatim from the Meshtastic firmware region
-// table (src/mesh/RadioInterface.cpp). The per-preset centre frequencies are
-// computed from those edges using Meshtastic's own frequency-slot algorithm
-// (djb2 hash of the channel name, modulo the number of slots in the band), so a
-// preset lands on exactly the same frequency a real Meshtastic node would use.
+// Band edges are taken verbatim from the Meshtastic firmware region table
+// (src/mesh/RadioInterface.cpp). Per-preset centre frequencies are computed
+// from those edges using Meshtastic's own frequency-slot algorithm (djb2 hash
+// of the channel name, modulo the number of slots in the band), so a preset
+// lands on exactly the frequency a real Meshtastic node would use.
 // -----------------------------------------------------------------------------
 
 #pragma once
@@ -34,7 +36,8 @@
 #include "config.h"   // user may set LORA_REGION here; must be seen first
 
 // --- Region codes -----------------------------------------------------------
-// Values are arbitrary but must be unique. Use these with #define LORA_REGION.
+// Values are stable identifiers persisted to flash; do not renumber existing
+// entries. Use these with #define LORA_REGION and in region_set_by_code().
 #define RG_US       1    // 902.0 - 928.0 MHz  (United States, 915 MHz ISM)
 #define RG_EU_868   2    // 869.4 - 869.65 MHz (Europe, 868 MHz, 10% duty cycle)
 #define RG_EU_433   3    // 433.0 - 434.0 MHz  (Europe, 433 MHz)
@@ -58,154 +61,34 @@
 #define RG_PH_915   21   // 915.0 - 918.0 MHz  (Philippines 915)
 #define RG_BR_902   22   // 902.0 - 907.5 MHz  (Brazil 902)
 #define RG_NP_865   23   // 865.0 - 868.0 MHz  (Nepal 865)
-#define RG_LORA_24  24   // 2400.0 - 2483.5 MHz (worldwide 2.4 GHz)
+#define RG_LORA_24  24   // 2400.0 - 2483.5 MHz (worldwide 2.4 GHz; SX128x only)
 
-// --- Default region ---------------------------------------------------------
-// Preserves the previous behaviour (US 915 MHz ISM) when nothing is selected.
+// --- Compile-time default ---------------------------------------------------
+// Used only until a region has been chosen and saved on the device.
 #ifndef LORA_REGION
 #define LORA_REGION RG_US
 #endif
 
-// --- Band edges per region (kHz, integer to keep the slot math exact) -------
-#if   LORA_REGION == RG_US
-  #define REGION_NAME            "US"
-  #define REGION_FREQ_START_KHZ  902000L
-  #define REGION_FREQ_END_KHZ    928000L
-#elif LORA_REGION == RG_EU_868
-  #define REGION_NAME            "EU_868"
-  #define REGION_FREQ_START_KHZ  869400L
-  #define REGION_FREQ_END_KHZ    869650L
-#elif LORA_REGION == RG_EU_433
-  #define REGION_NAME            "EU_433"
-  #define REGION_FREQ_START_KHZ  433000L
-  #define REGION_FREQ_END_KHZ    434000L
-#elif LORA_REGION == RG_CN
-  #define REGION_NAME            "CN"
-  #define REGION_FREQ_START_KHZ  470000L
-  #define REGION_FREQ_END_KHZ    510000L
-#elif LORA_REGION == RG_JP
-  #define REGION_NAME            "JP"
-  #define REGION_FREQ_START_KHZ  920500L
-  #define REGION_FREQ_END_KHZ    923500L
-#elif LORA_REGION == RG_ANZ
-  #define REGION_NAME            "ANZ"
-  #define REGION_FREQ_START_KHZ  915000L
-  #define REGION_FREQ_END_KHZ    928000L
-#elif LORA_REGION == RG_ANZ_433
-  #define REGION_NAME            "ANZ_433"
-  #define REGION_FREQ_START_KHZ  433050L
-  #define REGION_FREQ_END_KHZ    434790L
-#elif LORA_REGION == RG_RU
-  #define REGION_NAME            "RU"
-  #define REGION_FREQ_START_KHZ  868700L
-  #define REGION_FREQ_END_KHZ    869200L
-#elif LORA_REGION == RG_KR
-  #define REGION_NAME            "KR"
-  #define REGION_FREQ_START_KHZ  920000L
-  #define REGION_FREQ_END_KHZ    923000L
-#elif LORA_REGION == RG_TW
-  #define REGION_NAME            "TW"
-  #define REGION_FREQ_START_KHZ  920000L
-  #define REGION_FREQ_END_KHZ    925000L
-#elif LORA_REGION == RG_IN
-  #define REGION_NAME            "IN"
-  #define REGION_FREQ_START_KHZ  865000L
-  #define REGION_FREQ_END_KHZ    867000L
-#elif LORA_REGION == RG_NZ_865
-  #define REGION_NAME            "NZ_865"
-  #define REGION_FREQ_START_KHZ  864000L
-  #define REGION_FREQ_END_KHZ    868000L
-#elif LORA_REGION == RG_TH
-  #define REGION_NAME            "TH"
-  #define REGION_FREQ_START_KHZ  920000L
-  #define REGION_FREQ_END_KHZ    925000L
-#elif LORA_REGION == RG_UA_433
-  #define REGION_NAME            "UA_433"
-  #define REGION_FREQ_START_KHZ  433000L
-  #define REGION_FREQ_END_KHZ    434700L
-#elif LORA_REGION == RG_UA_868
-  #define REGION_NAME            "UA_868"
-  #define REGION_FREQ_START_KHZ  868000L
-  #define REGION_FREQ_END_KHZ    868600L
-#elif LORA_REGION == RG_MY_433
-  #define REGION_NAME            "MY_433"
-  #define REGION_FREQ_START_KHZ  433000L
-  #define REGION_FREQ_END_KHZ    435000L
-#elif LORA_REGION == RG_MY_919
-  #define REGION_NAME            "MY_919"
-  #define REGION_FREQ_START_KHZ  919000L
-  #define REGION_FREQ_END_KHZ    924000L
-#elif LORA_REGION == RG_SG_923
-  #define REGION_NAME            "SG_923"
-  #define REGION_FREQ_START_KHZ  917000L
-  #define REGION_FREQ_END_KHZ    925000L
-#elif LORA_REGION == RG_PH_433
-  #define REGION_NAME            "PH_433"
-  #define REGION_FREQ_START_KHZ  433000L
-  #define REGION_FREQ_END_KHZ    434700L
-#elif LORA_REGION == RG_PH_868
-  #define REGION_NAME            "PH_868"
-  #define REGION_FREQ_START_KHZ  868000L
-  #define REGION_FREQ_END_KHZ    869400L
-#elif LORA_REGION == RG_PH_915
-  #define REGION_NAME            "PH_915"
-  #define REGION_FREQ_START_KHZ  915000L
-  #define REGION_FREQ_END_KHZ    918000L
-#elif LORA_REGION == RG_BR_902
-  #define REGION_NAME            "BR_902"
-  #define REGION_FREQ_START_KHZ  902000L
-  #define REGION_FREQ_END_KHZ    907500L
-#elif LORA_REGION == RG_NP_865
-  #define REGION_NAME            "NP_865"
-  #define REGION_FREQ_START_KHZ  865000L
-  #define REGION_FREQ_END_KHZ    868000L
-#elif LORA_REGION == RG_LORA_24
-  #define REGION_NAME            "LORA_24"
-  #define REGION_FREQ_START_KHZ  2400000L
-  #define REGION_FREQ_END_KHZ    2483500L
-#else
-  #error "Unknown LORA_REGION. See src/region.h for the list of RG_* codes."
-#endif
+// --- Runtime API (mirrors theme.*) ------------------------------------------
+void        region_init();               // load persisted choice (or default)
+int         region_count();              // number of regions in the table
+const char* region_name(int idx);        // display name for a table index
+int         region_current();            // current table index
+int         region_current_code();       // current RG_* code
+void        region_set(int idx);         // clamp, persist, retune the radio
+void        region_next();               // cycle to the next selectable region
 
-// --- Derived band edges as floating-point MHz (for sweeps / display) --------
-#define REGION_FREQ_START_MHZ  ((float)REGION_FREQ_START_KHZ / 1000.0f)
-#define REGION_FREQ_END_MHZ    ((float)REGION_FREQ_END_KHZ   / 1000.0f)
-#define REGION_SPAN_MHZ        (REGION_FREQ_END_MHZ - REGION_FREQ_START_MHZ)
+// True when a region is usable on this board's radio. The sub-GHz SX1262 fitted
+// to every supported board cannot reach the 2.4 GHz band, so RG_LORA_24 is not
+// selectable on-device (it remains a valid compile-time target for SX128x work).
+bool        region_selectable(int idx);
 
-// --- Meshtastic frequency-slot algorithm ------------------------------------
-// All helpers are C++11-friendly constexpr (single-return, no loops) so the
-// preset frequencies are resolved entirely at compile time.
+// Current band edges, in MHz, for the sweep screens and status output.
+float       region_freq_start_mhz();
+float       region_freq_end_mhz();
+float       region_span_mhz();
 
-// djb2 string hash (Dan Bernstein), matching Meshtastic RadioInterface.cpp.
-constexpr uint32_t rf_djb2(const char* s, uint32_t h = 5381u) {
-    return (*s == '\0') ? h
-                        : rf_djb2(s + 1, ((h << 5) + h) + (uint32_t)(uint8_t)*s);
-}
-
-// Number of channel slots that fit in the band for a given bandwidth (kHz).
-constexpr long rf_num_channels(long startKHz, long endKHz, long bwKHz) {
-    return (endKHz - startKHz) / bwKHz;
-}
-
-// Zero-based channel slot for a channel name in the current band.
-constexpr long rf_slot(const char* name, long startKHz, long endKHz, long bwKHz) {
-    return (long)(rf_djb2(name) %
-                  (uint32_t)rf_num_channels(startKHz, endKHz, bwKHz));
-}
-
-// Centre frequency (MHz) of the slot a channel name maps to. Mirrors
-// Meshtastic: freq = freqStart + bw/2 + slot * bw.
-constexpr float rf_channel_freq(const char* name,
-                                long startKHz, long endKHz, long bwKHz) {
-    return (float)(((double)startKHz * 1000.0
-                    + (double)bwKHz * 500.0
-                    + (double)rf_slot(name, startKHz, endKHz, bwKHz)
-                          * (double)bwKHz * 1000.0)
-                   / 1000000.0);
-}
-
-// Convenience: centre frequency of a preset in the currently selected region.
-// `meshName` is the canonical Meshtastic channel name (e.g. "MediumSlow"),
-// which is what the slot hash is computed from.
-#define MESH_CHANNEL_FREQ(meshName, bwKHz) \
-    rf_channel_freq((meshName), REGION_FREQ_START_KHZ, REGION_FREQ_END_KHZ, (bwKHz))
+// Centre frequency (MHz) of a Meshtastic modem preset in the current region.
+// `meshName` is the canonical Meshtastic channel name (e.g. "MediumSlow"), from
+// which the frequency-slot hash is computed.
+float       region_channel_freq(const char* meshName, int bwKHz);

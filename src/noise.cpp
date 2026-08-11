@@ -58,7 +58,7 @@ void noise_update() {
     if (millis() - lastSample < 50) return; // Sample every 50ms
     lastSample = millis();
 
-    float rssi = lora_scan_rssi(MESH_CHANNELS[channelIdx].freqMHz);
+    float rssi = lora_scan_rssi(mesh_channel_freq(channelIdx));
     
     // Shift history
     for (int i = 0; i < GRAPH_W - 1; i++) {

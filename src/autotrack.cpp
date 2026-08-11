@@ -19,13 +19,15 @@
 
 
 static const int   NUM_STEPS    = 53;
-// Band edges follow the selected region (see region.h); the step spans the band.
-static const float FREQ_START   = REGION_FREQ_START_MHZ;
-static const float FREQ_END     = REGION_FREQ_END_MHZ;
-static const float FREQ_STEP    = (FREQ_END - FREQ_START) / (float)(NUM_STEPS - 1);
+// Band edges follow the selected region (see region.h) and are refreshed on
+// enter(), so a region change made in Settings takes effect next time you open
+// this screen. The step spans the whole band across NUM_STEPS points.
+static float FREQ_START   = 902.0f;
+static float FREQ_END     = 928.0f;
+static float FREQ_STEP    = 0.5f;
 static const uint32_t RESCAN_MS = 30000;  // rescan every 30s
 
-static float    lockedFreq  = MESH_CHANNEL_FREQ("LongFast", 250);  // region LongFast
+static float    lockedFreq  = 906.875f;  // set from the region in autotrack_enter()
 static float    lockedRSSI  = -200.0f;
 static int      totalPkts   = 0;
 static uint32_t lastRescanMs = 0;
@@ -84,6 +86,11 @@ static void drawScreen() {
 
 void autotrack_enter() {
     totalPkts = 0; lastRescanMs = 0;
+    // Refresh band edges from the current region (may have changed in Settings).
+    FREQ_START = region_freq_start_mhz();
+    FREQ_END   = region_freq_end_mhz();
+    FREQ_STEP  = (FREQ_END - FREQ_START) / (float)(NUM_STEPS - 1);
+    lockedFreq = region_channel_freq("LongFast", 250);
     display_clear();
     ui_header("Auto Tracker");
 #if HAS_OLED

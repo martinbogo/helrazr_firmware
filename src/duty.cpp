@@ -118,7 +118,7 @@ void duty_update() {
 
     if (now - lastSample >= SAMPLE_INTERVAL) {
         lastSample = now;
-        float rssi = lora_scan_rssi(MESH_CHANNELS[curChan].freqMHz);
+        float rssi = lora_scan_rssi(mesh_channel_freq(curChan));
         samplesTotal++;
         if (rssi > ACTIVITY_THRESH) samplesAbove++;
     }
