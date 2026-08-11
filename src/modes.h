@@ -9,6 +9,7 @@
 
 #pragma once
 #include <Arduino.h>
+#include "region.h"
 
 enum AppMode {
     MODE_MENU = 0,
@@ -43,13 +44,19 @@ struct MeshChannel {
     uint8_t     cr;
 };
 
+// Meshtastic modem presets. The centre frequency of each preset is derived from
+// the selected region (see region.h) using Meshtastic's frequency-slot hash, so
+// changing LORA_REGION re-targets every preset to the frequency a real
+// Meshtastic node would use in that region. The first argument to
+// MESH_CHANNEL_FREQ is the canonical Meshtastic channel name used by the slot
+// hash (which may differ from the short display name in the .name field).
 static const MeshChannel MESH_CHANNELS[] = {
-    { "LongFast",  906.875f, 250.0f, 11, 8 },
-    { "LongMod",   906.875f, 125.0f, 11, 8 },
-    { "LongSlow",  906.875f, 125.0f, 12, 8 },
-    { "MedFast",   906.875f, 250.0f,  9, 8 },
-    { "MedSlow",   906.875f, 250.0f, 10, 8 },
-    { "ShortFast", 906.875f, 250.0f,  7, 5 },
-    { "ShortSlow", 906.875f, 250.0f,  8, 5 },
+    { "LongFast",  MESH_CHANNEL_FREQ("LongFast",   250), 250.0f, 11, 8 },
+    { "LongMod",   MESH_CHANNEL_FREQ("LongMod",    125), 125.0f, 11, 8 },
+    { "LongSlow",  MESH_CHANNEL_FREQ("LongSlow",   125), 125.0f, 12, 8 },
+    { "MedFast",   MESH_CHANNEL_FREQ("MediumFast", 250), 250.0f,  9, 8 },
+    { "MedSlow",   MESH_CHANNEL_FREQ("MediumSlow", 250), 250.0f, 10, 8 },
+    { "ShortFast", MESH_CHANNEL_FREQ("ShortFast",  250), 250.0f,  7, 5 },
+    { "ShortSlow", MESH_CHANNEL_FREQ("ShortSlow",  250), 250.0f,  8, 5 },
 };
 static const int MESH_CHANNEL_COUNT = 7;
