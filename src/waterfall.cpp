@@ -10,12 +10,21 @@
 #include "waterfall.h"
 #include "lora.h"
 #include "display.h"
+#include "region.h"
 #include <string.h>
 
-static const float FREQ_START = 902.0f;
-static const float FREQ_END   = 928.0f;
-static const float FREQ_STEP  = 0.5f;
 static const int   NUM_STEPS  = 53;
+// Band edges follow the selected region (see region.h); the step spans the band.
+static const float FREQ_START = REGION_FREQ_START_MHZ;
+static const float FREQ_END   = REGION_FREQ_END_MHZ;
+static const float FREQ_STEP  = (FREQ_END - FREQ_START) / (float)(NUM_STEPS - 1);
+
+// Printf format for an axis-frequency label, chosen by how wide the band is.
+static const char* freqLabelFmt() {
+    if (REGION_SPAN_MHZ >= 10.0f) return "%.0f";
+    if (REGION_SPAN_MHZ >= 2.0f)  return "%.1f";
+    return "%.2f";
+}
 
 #if HAS_OLED
 static const int GRAPH_X  = 0;
@@ -145,17 +154,23 @@ void waterfall_enter() {
     lora_set_scan_bandwidth(250.0f);
     display_clear();
     ui_header("Waterfall");
+    char lbl[12];
+    const char* fmt = freqLabelFmt();
 #if HAS_OLED
-    display_draw_text_tiny_abs(0,   GRAPH_Y + GRAPH_H + 3, DISPLAY_CYAN, "902");
-    display_draw_text_tiny_abs(54,  GRAPH_Y + GRAPH_H + 3, DISPLAY_CYAN, "915");
-    display_draw_text_tiny_abs(111, GRAPH_Y + GRAPH_H + 3, DISPLAY_CYAN, "928");
+    static const int   oledX[3]   = { 0, 54, 111 };
+    static const float oledFrac[3] = { 0.0f, 0.5f, 1.0f };
+    for (int i = 0; i < 3; i++) {
+        snprintf(lbl, sizeof(lbl), fmt, FREQ_START + oledFrac[i] * REGION_SPAN_MHZ);
+        display_draw_text_tiny_abs(oledX[i], GRAPH_Y + GRAPH_H + 3, DISPLAY_CYAN, lbl);
+    }
 #else
     drawTftColorLegend();
-    display_draw_text_small_abs(0,   GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "902");
-    display_draw_text_small_abs(54,  GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "909");
-    display_draw_text_small_abs(113, GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "916");
-    display_draw_text_small_abs(172, GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "923");
-    display_draw_text_small_abs(213, GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, "928");
+    static const int   tftX[5]   = { 0, 54, 113, 172, 213 };
+    static const float tftFrac[5] = { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f };
+    for (int i = 0; i < 5; i++) {
+        snprintf(lbl, sizeof(lbl), fmt, FREQ_START + tftFrac[i] * REGION_SPAN_MHZ);
+        display_draw_text_small_abs(tftX[i], GRAPH_Y + GRAPH_H + 5, DISPLAY_CYAN, lbl);
+    }
 #endif
     display_update_buffer();
 }

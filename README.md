@@ -32,6 +32,35 @@ python build_and_flash.py -b t114
 python build_and_flash.py -b v3
 ```
 
+### LoRa Region
+
+The firmware defaults to the **US** band (902-928 MHz). To build for another
+regulatory region (ANZ, EU, etc.), set `LORA_REGION` in [`src/config.h`](src/config.h)
+before building:
+
+```c
+// src/config.h
+#define LORA_REGION RG_ANZ
+```
+
+This single setting re-targets everything that touches RF: the Meshtastic
+channel presets used by Monitor / Duty / FreqOffset, the default receive
+frequency, and the Spectrum / Waterfall / AutoTrack sweep ranges. Per-preset
+frequencies are computed with Meshtastic's own frequency-slot algorithm, so each
+preset lands on exactly the frequency a real Meshtastic node would use in that
+region.
+
+Supported region codes (see [`src/region.h`](src/region.h) for band edges):
+
+`RG_US` `RG_EU_868` `RG_EU_433` `RG_ANZ` `RG_ANZ_433` `RG_JP` `RG_KR` `RG_TW`
+`RG_IN` `RG_RU` `RG_CN` `RG_TH` `RG_NZ_865` `RG_UA_433` `RG_UA_868` `RG_MY_433`
+`RG_MY_919` `RG_SG_923` `RG_PH_433` `RG_PH_868` `RG_PH_915` `RG_BR_902`
+`RG_NP_865` `RG_LORA_24`
+
+You can also override it at build time without editing files, e.g.
+`pio run -e t114 -D LORA_REGION=RG_ANZ`. The active region and band are shown in
+the serial shell `status` and `lora` command output.
+
 ### USB Flash
 
 Use the `-p` parameter to automatically target a USB serial port:
@@ -85,9 +114,9 @@ The single button navigates between modes.
 | Mode | Description |
 |------|-------------|
 | **Status** | Shows a live dashboard with GPS position, LoRa RX stats, battery voltage, and firmware uptime. |
-| **Spectrum** | Sweeps 902.0–928.0 MHz (53 points) and draws a real-time RSSI bar graph mapping signal strength. Prints peak frequency info. <br>**Short Press:** Toggles *Peak Hold* mode (displays an `[H]` indicator and draws a continuous line holding the historically highest signal levels). |
+| **Spectrum** | Sweeps the configured region's band (53 points, e.g. 902.0–928.0 MHz for US) and draws a real-time RSSI bar graph mapping signal strength. Prints peak frequency info. <br>**Short Press:** Toggles *Peak Hold* mode (displays an `[H]` indicator and draws a continuous line holding the historically highest signal levels). |
 | **Scanner** | Sweeps the band and lists the top most active frequencies with RSSI above a threshold. Useful for finding active channels. |
-| **Monitor** | Cycles through standard Meshtastic US915 channel presets (LongFast, LongSlow, etc.), dwelling on each to count packets and display a live activity table. |
+| **Monitor** | Cycles through the standard Meshtastic channel presets (LongFast, LongSlow, etc.) for the configured region, dwelling on each to count packets and display a live activity table. |
 | **Decoder** | Locks onto the Meshtastic LongFast channel to decode headers and parse text messages from unencrypted packets directly on the screen. |
 | **Nodes** | Node Tracker mode. Maintains a localized database of heard Meshtastic nodes, tracking Node ID, packet counts, RSSI, and time since last seen. |
 | **Stats** | Packet statistics mode. Shows total packets, packets per minute, and a visual histogram graph of recent traffic over time. Also tracks top nodes. |

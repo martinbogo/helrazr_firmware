@@ -12,16 +12,20 @@
 #include "display.h"
 #include "nodetracker.h"
 #include "stats.h"
+#include "region.h"
+#include "modes.h"
 
 
 
 
-static const float FREQ_START   = 902.0f;
-static const float FREQ_STEP    = 0.5f;
 static const int   NUM_STEPS    = 53;
+// Band edges follow the selected region (see region.h); the step spans the band.
+static const float FREQ_START   = REGION_FREQ_START_MHZ;
+static const float FREQ_END     = REGION_FREQ_END_MHZ;
+static const float FREQ_STEP    = (FREQ_END - FREQ_START) / (float)(NUM_STEPS - 1);
 static const uint32_t RESCAN_MS = 30000;  // rescan every 30s
 
-static float    lockedFreq  = 906.875f;
+static float    lockedFreq  = MESH_CHANNEL_FREQ("LongFast", 250);  // region LongFast
 static float    lockedRSSI  = -200.0f;
 static int      totalPkts   = 0;
 static uint32_t lastRescanMs = 0;
